@@ -14,6 +14,8 @@ export { StampVisitPass } from "./visit-pass.js";
 export { StampVietnam } from "./vietnam.js";
 export { InkDefs, StampGroup } from "./ink-effects.js";
 export { PRESETS, INK_OPTIONS, FADE_OPTIONS } from "./presets.js";
+export { getStampForTrip, getTransitStamps } from "./country-mapping.js";
+export type { StampConfig } from "./country-mapping.js";
 export type * from "./types.js";
 
 import type { StampRegistryEntry } from "./types.js";

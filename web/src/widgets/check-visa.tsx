@@ -83,101 +83,83 @@ function CheckVisa() {
       className="app-container"
       data-llm={`Viewing passport page: ${pageLabel}. ${output?.approved}/${output?.totalDestinations} destinations approved.`}
     >
-      {/* Header */}
-      <div className="passport-header">
-        <div className="passport-title">
-          <h1>Visa Check</h1>
-          <span className="subtitle">{output?.nationality} passport</span>
+      {/* Left sidebar — all info lives here */}
+      <div className="sidebar">
+        <div className="passport-header">
+          <div className="passport-title">
+            <h1>Visa Check</h1>
+            <span className="subtitle">{output?.nationality} passport</span>
+          </div>
         </div>
-        <div className="passport-stats">
-          <div className="stat-item">
-            <span className="stat-label">Destinations</span>
-            <span className="stat-value">{output?.totalDestinations}</span>
-          </div>
-          <div className="stat-divider" />
-          <div className="stat-item stat-approved">
-            <span className="stat-label">Approved</span>
-            <span className="stat-value">{output?.approved}</span>
-          </div>
-          {(output?.rejected ?? 0) > 0 && (
-            <>
-              <div className="stat-divider" />
-              <div className="stat-item stat-rejected">
-                <span className="stat-label">Rejected</span>
-                <span className="stat-value">{output?.rejected}</span>
+
+        <div className="sidebar-content">
+          {currentTrip ? (
+            <div className="trip-info" key={currentTrip.countryCode}>
+              <div className="trip-country">
+                {getFlagEmoji(currentTrip.countryCode)} {currentTrip.country}
               </div>
-            </>
-          )}
+              <div className="trip-dates">
+                {currentTrip.arrivalDate} — {currentTrip.departureDate}
+              </div>
+              <div className={`trip-status ${currentTrip.approved ? "approved" : "rejected"}`}>
+                <span className="trip-status-dot" />
+                {currentTrip.approved ? "Approved" : "Rejected"}
+              </div>
+              <div className="trip-visa-type">
+                {currentTrip.visaStatus.replace(/_/g, " ")} · {currentTrip.stayAllowed}
+              </div>
+            </div>
+          ) : currentPage <= 0 ? (
+            <div className="cover-label">
+              <h2>{output?.nationality}</h2>
+              <p>
+                {output?.totalDestinations} destinations · {output?.approved} approved
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="nav-bar">
+          <button
+            className="nav-btn"
+            onClick={() => flipPage("prev")}
+            disabled={currentPage <= -1 || isFlipping}
+          >
+            &#8249;
+          </button>
+          <div className="nav-pages">
+            <div
+              className={`nav-dot ${currentPage <= 0 ? "active" : "visited"}`}
+              onClick={() => !isFlipping && setCurrentPage(0)}
+            />
+            {trips.map((_, tripIndex) => (
+              <div
+                key={tripIndex}
+                className={`nav-dot ${currentPage === tripIndex + 1 ? "active" : currentPage > tripIndex + 1 ? "visited" : ""}`}
+                onClick={() => !isFlipping && setCurrentPage(tripIndex + 1)}
+              />
+            ))}
+          </div>
+          <button
+            className="nav-btn"
+            onClick={() => flipPage("next")}
+            disabled={currentPage >= totalPages || isFlipping}
+          >
+            &#8250;
+          </button>
         </div>
       </div>
 
-      {/* Mode toggle */}
+      {/* Passport canvas — takes all remaining space */}
+      <div className="canvas-container" ref={containerRef} />
+
+      {/* Expand toggle */}
       <button
         className="mode-btn"
         onClick={() => setDisplayMode(isFullscreen ? "inline" : "fullscreen")}
       >
         {isFullscreen ? "Collapse" : "Expand"}
       </button>
-
-      {/* Three.js canvas */}
-      <div className="canvas-container" ref={containerRef} />
-
-      {/* Current trip info */}
-      {currentTrip ? (
-        <div className="trip-info">
-          <div className="trip-country">
-            {getFlagEmoji(currentTrip.countryCode)} {currentTrip.country}
-          </div>
-          <div className="trip-dates">
-            {currentTrip.arrivalDate} — {currentTrip.departureDate}
-          </div>
-          <div className={`trip-status ${currentTrip.approved ? "approved" : "rejected"}`}>
-            <span className="trip-status-dot" />
-            {currentTrip.approved ? "Approved" : "Rejected"}
-          </div>
-          <div className="trip-visa-type">
-            {currentTrip.visaStatus.replace(/_/g, " ")} · {currentTrip.stayAllowed}
-          </div>
-        </div>
-      ) : currentPage <= 0 ? (
-        <div className="cover-label">
-          <h2>{output?.nationality}</h2>
-          <p>
-            {output?.totalDestinations} destinations · {output?.approved} approved
-          </p>
-        </div>
-      ) : null}
-
-      {/* Navigation */}
-      <div className="nav-bar">
-        <button
-          className="nav-btn"
-          onClick={() => flipPage("prev")}
-          disabled={currentPage <= -1 || isFlipping}
-        >
-          &#8249;
-        </button>
-        <div className="nav-pages">
-          <div
-            className={`nav-dot ${currentPage <= 0 ? "active" : "visited"}`}
-            onClick={() => !isFlipping && setCurrentPage(0)}
-          />
-          {trips.map((_, index) => (
-            <div
-              key={index}
-              className={`nav-dot ${currentPage === index + 1 ? "active" : currentPage > index + 1 ? "visited" : ""}`}
-              onClick={() => !isFlipping && setCurrentPage(index + 1)}
-            />
-          ))}
-        </div>
-        <button
-          className="nav-btn"
-          onClick={() => flipPage("next")}
-          disabled={currentPage >= totalPages || isFlipping}
-        >
-          &#8250;
-        </button>
-      </div>
     </div>
   );
 }

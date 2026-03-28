@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Spectral:wght@200;300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap");
 
 * {
   margin: 0;
@@ -7,192 +7,167 @@
 }
 
 :root {
-  --cream: #f4ede4;
-  --cream-dark: #e8dfd3;
-  --cream-light: #faf6f0;
-  --gold: #b8963e;
-  --gold-light: #d4b065;
-  --gold-dark: #8a6d2b;
-  --gold-muted: rgba(184, 150, 62, 0.4);
-  --burgundy: #2d1f3d;
-  --burgundy-deep: #1a1128;
-  --text-dark: #3a3028;
-  --text-muted: #8a7e70;
-  --text-light: #b5a898;
+  --parchment: #f0ebe2;
+  --parchment-mid: #e4ddd1;
+  --parchment-deep: #d5cbbf;
+  --ink: #2a2420;
+  --ink-soft: #5c5248;
+  --ink-faint: #9a8e80;
+  --ink-ghost: #c2b8aa;
+  --gold: #b4943a;
+  --gold-glow: rgba(180, 148, 58, 0.35);
+  --gold-dim: rgba(180, 148, 58, 0.15);
+  --green: #496b3d;
+  --green-bg: rgba(73, 107, 61, 0.08);
+  --green-border: rgba(73, 107, 61, 0.18);
+  --red: #8b4034;
+  --red-bg: rgba(139, 64, 52, 0.08);
+  --red-border: rgba(139, 64, 52, 0.18);
+
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --sidebar-width: 220px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: "Spectral", serif;
-  background: var(--cream);
+  font-family: var(--font-body);
+  background: var(--parchment);
+  color: var(--ink);
 }
 
-/* ─── App Container ─── */
+/* ═══════════════════════════════════════
+   APP SHELL — sidebar + canvas
+   ═══════════════════════════════════════ */
+
 .app-container {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--cream);
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: 1fr;
   position: relative;
   overflow: hidden;
+  background: var(--parchment);
 }
 
-/* Subtle paper texture overlay */
-.app-container::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(184, 150, 62, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(184, 150, 62, 0.02) 0%, transparent 40%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* ═══════════════════════════════════════
+   LEFT SIDEBAR — title + info panels
+   ═══════════════════════════════════════ */
 
-/* ─── Header ─── */
-.passport-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 32px;
-  z-index: 10;
-}
-
-.passport-title {
+.sidebar {
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  padding: 28px 24px;
+  z-index: 10;
+  position: relative;
+  border-right: 1px solid var(--gold-dim);
+}
+
+/* ═══════════════════════════════════════
+   HEADER — top of sidebar
+   ═══════════════════════════════════════ */
+
+.passport-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 0;
 }
 
 .passport-title h1 {
-  font-family: "Cormorant Garamond", serif;
-  font-weight: 600;
-  font-size: 15px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 12px;
   color: var(--gold);
   letter-spacing: 4px;
   text-transform: uppercase;
-}
-
-.passport-title .subtitle {
-  font-family: "Spectral", serif;
-  font-weight: 200;
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 1.5px;
-}
-
-.passport-stats {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-}
-
-.stat-item .stat-label {
-  font-family: "Spectral", serif;
-  font-weight: 300;
-  font-size: 9px;
-  color: var(--text-light);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-
-.stat-item .stat-value {
-  font-family: "Cormorant Garamond", serif;
-  font-weight: 600;
-  font-size: 20px;
-  color: var(--gold);
   line-height: 1;
 }
 
-.stat-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--gold-muted);
+.passport-title .subtitle {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 1px;
+  margin-top: 4px;
 }
 
-.stat-approved .stat-value {
-  color: #5a8a4a;
+/* Stats — hidden, info is in panels */
+.passport-stats {
+  display: none;
 }
 
-.stat-rejected .stat-value {
-  color: #a05040;
-}
+/* ═══════════════════════════════════════
+   INFO PANELS — middle of sidebar
+   ═══════════════════════════════════════ */
 
-/* ─── Canvas / Three.js ─── */
-.canvas-container {
+.sidebar-content {
   flex: 1;
-  position: relative;
-  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.canvas-container canvas {
-  display: block;
-}
-
-/* ─── Current Trip Info (bottom left) ─── */
+/* ─── Trip info card ─── */
 .trip-info {
-  position: absolute;
-  bottom: 88px;
-  left: 32px;
-  z-index: 10;
-  max-width: 240px;
+  animation: panelReveal 0.5s var(--ease-out) both;
+}
+
+@keyframes panelReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .trip-info .trip-country {
-  font-family: "Cormorant Garamond", serif;
-  font-weight: 600;
-  font-size: 28px;
-  color: var(--text-dark);
-  line-height: 1.1;
-  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1.15;
+  margin-bottom: 4px;
 }
 
 .trip-info .trip-dates {
-  font-family: "Spectral", serif;
+  font-family: var(--font-body);
   font-weight: 300;
-  font-size: 13px;
-  color: var(--text-muted);
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.3px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gold-dim);
 }
 
 .trip-info .trip-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: "Spectral", serif;
-  font-weight: 400;
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  padding: 4px 12px;
-  border-radius: 2px;
+  padding: 5px 10px;
+  border-radius: 3px;
 }
 
 .trip-status.approved {
-  color: #4a7a3a;
-  background: rgba(74, 122, 58, 0.08);
-  border: 1px solid rgba(74, 122, 58, 0.15);
+  color: var(--green);
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
 }
 
 .trip-status.rejected {
-  color: #a05040;
-  background: rgba(160, 80, 64, 0.08);
-  border: 1px solid rgba(160, 80, 64, 0.15);
+  color: var(--red);
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
 }
 
 .trip-status-dot {
@@ -202,140 +177,187 @@ html, body, #root {
 }
 
 .trip-status.approved .trip-status-dot {
-  background: #4a7a3a;
+  background: var(--green);
 }
 
 .trip-status.rejected .trip-status-dot {
-  background: #a05040;
+  background: var(--red);
 }
 
 .trip-visa-type {
-  font-family: "Spectral", serif;
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 10px;
+  color: var(--ink-ghost);
+  margin-top: 6px;
+  letter-spacing: 0.2px;
+}
+
+/* ─── Cover label ─── */
+.cover-label {
+  animation: panelReveal 0.6s var(--ease-out) both;
+}
+
+.cover-label h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.cover-label p {
+  font-family: var(--font-body);
   font-weight: 300;
   font-size: 11px;
-  color: var(--text-light);
-  margin-top: 4px;
+  color: var(--ink-faint);
+  margin-top: 6px;
   letter-spacing: 0.3px;
 }
 
-/* ─── Navigation ─── */
-.nav-bar {
+/* ═══════════════════════════════════════
+   THREE.JS CANVAS — the masterpiece
+   ═══════════════════════════════════════ */
+
+.canvas-container {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* Soft vignette on the canvas area */
+.canvas-container::after {
+  content: "";
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(42, 36, 32, 0.06) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.canvas-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ═══════════════════════════════════════
+   NAVIGATION — bottom of sidebar
+   ═══════════════════════════════════════ */
+
+.nav-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
-  padding: 20px 32px;
-  z-index: 10;
-  background: linear-gradient(to top, var(--cream) 60%, transparent);
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gold-dim);
 }
 
 .nav-btn {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 1px solid var(--gold-muted);
+  border: 1px solid var(--gold-dim);
   background: transparent;
   color: var(--gold);
-  font-size: 16px;
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.4s ease;
-  font-family: "Spectral", serif;
+  transition: all 0.35s var(--ease-out);
+  font-family: var(--font-body);
+  flex-shrink: 0;
 }
 
 .nav-btn:hover:not(:disabled) {
   background: var(--gold);
-  color: var(--cream);
+  color: var(--parchment);
   border-color: var(--gold);
 }
 
 .nav-btn:disabled {
-  opacity: 0.2;
+  opacity: 0.15;
   cursor: default;
 }
 
 .nav-pages {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .nav-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--cream-dark);
-  border: 1px solid rgba(184, 150, 62, 0.2);
-  transition: all 0.4s ease;
+  background: var(--parchment-deep);
+  border: 1px solid var(--gold-dim);
+  transition: all 0.4s var(--ease-out);
   cursor: pointer;
 }
 
 .nav-dot:hover {
-  background: var(--gold-muted);
+  background: var(--gold-glow);
+  transform: scale(1.3);
 }
 
 .nav-dot.active {
   background: var(--gold);
   border-color: var(--gold);
-  width: 20px;
-  border-radius: 3px;
+  width: 16px;
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--gold-glow);
 }
 
 .nav-dot.visited {
-  background: var(--gold-muted);
+  background: var(--gold-dim);
+  border-color: rgba(180, 148, 58, 0.3);
 }
 
-.page-label {
-  font-family: "Cormorant Garamond", serif;
-  font-weight: 400;
-  font-size: 12px;
-  color: var(--text-muted);
-  letter-spacing: 1px;
-  min-width: 80px;
-  text-align: center;
-}
+/* ═══════════════════════════════════════
+   FULLSCREEN TOGGLE — top right of canvas
+   ═══════════════════════════════════════ */
 
-/* ─── Fullscreen toggle ─── */
 .mode-btn {
   position: absolute;
   top: 20px;
-  right: 32px;
+  right: 20px;
   z-index: 10;
-  background: transparent;
-  border: 1px solid var(--gold-muted);
-  border-radius: 2px;
-  padding: 6px 14px;
+  background: rgba(240, 235, 226, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--gold-dim);
+  border-radius: 3px;
+  padding: 5px 12px;
   color: var(--gold);
-  font-family: "Spectral", serif;
-  font-weight: 300;
-  font-size: 10px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 9px;
   letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.35s var(--ease-out);
+  opacity: 0.5;
 }
 
 .mode-btn:hover {
+  opacity: 1;
   background: var(--gold);
-  color: var(--cream);
+  color: var(--parchment);
   border-color: var(--gold);
 }
 
-/* ─── Gold decorative line ─── */
-.gold-rule {
-  width: 40px;
-  height: 1px;
-  background: var(--gold-muted);
-  margin: 8px 0;
-}
+/* ═══════════════════════════════════════
+   LOADING STATE
+   ═══════════════════════════════════════ */
 
-/* ─── Loading ─── */
 .loading-container {
   width: 100%;
   height: 100%;
@@ -343,25 +365,27 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--cream);
-  gap: 16px;
+  background: var(--parchment);
+  gap: 20px;
 }
 
 .loading-text {
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--font-display);
   font-weight: 400;
-  font-size: 16px;
+  font-size: 14px;
   color: var(--gold);
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   text-transform: uppercase;
+  opacity: 0.8;
 }
 
 .loading-bar {
-  width: 120px;
+  width: 100px;
   height: 1px;
-  background: var(--cream-dark);
+  background: var(--parchment-mid);
   position: relative;
   overflow: hidden;
+  border-radius: 1px;
 }
 
 .loading-bar::after {
@@ -371,36 +395,22 @@ html, body, #root {
   left: -40px;
   width: 40px;
   height: 1px;
-  background: var(--gold);
-  animation: loadSlide 1.2s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  animation: loadSlide 1.4s ease-in-out infinite;
 }
 
 @keyframes loadSlide {
   0% { left: -40px; }
-  100% { left: 120px; }
+  100% { left: 100px; }
 }
 
-/* ─── Cover view text ─── */
-.cover-label {
-  position: absolute;
-  bottom: 88px;
-  left: 32px;
-  z-index: 10;
-}
+/* ═══════════════════════════════════════
+   GOLD RULE
+   ═══════════════════════════════════════ */
 
-.cover-label h2 {
-  font-family: "Cormorant Garamond", serif;
-  font-weight: 300;
-  font-size: 32px;
-  color: var(--text-dark);
-  line-height: 1.1;
-}
-
-.cover-label p {
-  font-family: "Spectral", serif;
-  font-weight: 200;
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  letter-spacing: 0.5px;
+.gold-rule {
+  width: 40px;
+  height: 1px;
+  background: var(--gold-dim);
+  margin: 8px 0;
 }
