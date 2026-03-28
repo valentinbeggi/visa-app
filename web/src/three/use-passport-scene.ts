@@ -7,7 +7,6 @@ import {
   createPageTexture,
   createBlankPageTexture,
   createVisaInfoTexture,
-  createSpineTexture,
 } from "./textures.js";
 import type { TripData } from "./textures.js";
 
@@ -17,7 +16,7 @@ interface SceneState {
   renderer: THREE.WebGLRenderer;
   pages: THREE.Group[];
   cover: THREE.Group;
-  backCover: THREE.Mesh;
+  backCover: THREE.Group;
   animationId: number;
   disposables: (() => void)[];
 }
@@ -165,7 +164,6 @@ export function usePassportScene(
     // ── Shared geometries ──
     const pageGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS, 1, 1, 1));
     const coverGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS * 3));
-    const spineGeo = trackGeometry(new THREE.BoxGeometry(0.02, PAGE_HEIGHT, 0.06));
 
     // ── Shared material defaults ──
     const passportColor = PASSPORT_COLORS[nationalityCode] || PASSPORT_COLORS.DEFAULT;
@@ -235,29 +233,26 @@ export function usePassportScene(
     const bookGroup = new THREE.Group();
     scene.add(bookGroup);
 
-    // Spine with stitch texture
-    const spineCanvas = createSpineTexture(passportColor);
-    const spineTex = trackTexture(new THREE.CanvasTexture(spineCanvas));
-    spineTex.colorSpace = THREE.SRGBColorSpace;
-    const spineMat = trackMaterial(new THREE.MeshPhysicalMaterial({
-      map: spineTex,
-      roughness: 0.75,
-      metalness: 0.05,
-      bumpMap: leatherBumpTexture,
-      bumpScale: 0.006,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.7,
-    }));
-    bookGroup.add(new THREE.Mesh(spineGeo, spineMat));
+    // (Spine mesh removed — it protruded past page surfaces in z causing a visible strip;
+    //  the binding gutter effect is now handled by the gradient shadow in page textures.)
 
-    // Back cover
-    const backCoverOuterTex = trackTexture(new THREE.CanvasTexture(createPassportBackTexture(passportColor)));
+    // Back cover (flippable group — same pivot convention as coverGroup)
+    // Exterior shows on the left when folded → "left" rounding
+    const backCoverOuterTex = trackTexture(new THREE.CanvasTexture(createPassportBackTexture(passportColor, "left")));
     backCoverOuterTex.colorSpace = THREE.SRGBColorSpace;
     const backCoverInnerTex = trackTexture(new THREE.CanvasTexture(blankPageCanvas));
     backCoverInnerTex.colorSpace = THREE.SRGBColorSpace;
 
-    const backCover = new THREE.Mesh(coverGeo, [
+    const backCoverMesh = new THREE.Mesh(coverGeo, [
       leatherSideMat, leatherSideMat, leatherSideMat, leatherSideMat,
+      // +Z face: visible when unflipped (right side) = interior/blank page
+      trackMaterial(new THREE.MeshPhysicalMaterial({
+        ...paperDefaults,
+        map: backCoverInnerTex,
+        transparent: true,
+        alphaTest: 0.1,
+      })),
+      // -Z face: visible when folded to left = exterior texture
       trackMaterial(new THREE.MeshPhysicalMaterial({
         map: backCoverOuterTex,
         roughness: 0.7,
@@ -266,18 +261,23 @@ export function usePassportScene(
         bumpScale: 0.008,
         clearcoat: 0.3,
         clearcoatRoughness: 0.6,
+        transparent: true,
+        alphaTest: 0.1,
       })),
-      trackMaterial(new THREE.MeshPhysicalMaterial({ ...paperDefaults, map: backCoverInnerTex })),
     ]);
-    backCover.position.set(PAGE_WIDTH / 2 + 0.03, 0, -0.02);
-    bookGroup.add(backCover);
+    backCoverMesh.position.set(PAGE_WIDTH / 2, 0, 0);
+
+    const backCoverGroup = new THREE.Group();
+    backCoverGroup.position.set(0, 0, 0);
+    backCoverGroup.add(backCoverMesh);
+    bookGroup.add(backCoverGroup);
 
     // ── Pages ──
     const pages: THREE.Group[] = [];
 
     for (let pageIdx = 0; pageIdx < trips.length; pageIdx++) {
       const pageGroup = new THREE.Group();
-      pageGroup.position.set(0.03, 0, 0);
+      pageGroup.position.set(0, 0, 0);
 
       const pageResult = createPageTexture(trips[pageIdx], pageIdx, trips.length);
       // Back face of page N = left page when viewing trip N+1
@@ -328,7 +328,7 @@ export function usePassportScene(
 
     // ── Front cover ──
     const coverGroup = new THREE.Group();
-    coverGroup.position.set(0.03, 0, 0);
+    coverGroup.position.set(0, 0, 0);
 
     const coverTexture = trackTexture(new THREE.CanvasTexture(
       createPassportCoverTexture(nationality, nationalityCode, passportColor)
@@ -378,12 +378,13 @@ export function usePassportScene(
     }
 
     // ── Init angles ──
-    const allFlippable = [coverGroup, ...pages];
+    const allFlippable = [coverGroup, ...pages, backCoverGroup];
     const flippableCount = allFlippable.length;
     pageCurrentAngles.current = allFlippable.map(() => 0);
     pageTargets.current = allFlippable.map(() => 0);
 
-    sceneRef.current = { scene, camera, renderer, pages, cover: coverGroup, backCover, animationId: 0, disposables };
+    sceneRef.current = { scene, camera, renderer, pages, cover: coverGroup, backCover: backCoverGroup, animationId: 0, disposables };
+
 
     // ── Animation loop ──
     let time = 0;
@@ -512,7 +513,7 @@ export function usePassportScene(
 
   useEffect(() => {
     if (!sceneRef.current) return;
-    const totalFlippable = 1 + sceneRef.current.pages.length;
+    const totalFlippable = pageTargets.current.length; // cover + pages + backCover
 
     for (let flipIdx = 0; flipIdx < totalFlippable; flipIdx++) {
       pageTargets.current[flipIdx] = flipIdx <= currentPage ? Math.PI * 0.95 : 0;

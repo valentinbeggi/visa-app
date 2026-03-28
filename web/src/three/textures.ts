@@ -101,6 +101,20 @@ function wrapText(
   if (line) ctx.fillText(line, centerX, currentY);
 }
 
+function drawSpineShadow(ctx: CanvasRenderingContext2D, roundedSide: "left" | "right") {
+  // Spine is on the opposite side of the rounded corners
+  const spineSide = roundedSide === "right" ? "left" : "right";
+  const shadowWidth = 72;
+  const grad = spineSide === "left"
+    ? ctx.createLinearGradient(0, 0, shadowWidth, 0)
+    : ctx.createLinearGradient(TEX_W, 0, TEX_W - shadowWidth, 0);
+  grad.addColorStop(0, "rgba(0, 0, 0, 0.22)");
+  grad.addColorStop(0.5, "rgba(0, 0, 0, 0.07)");
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, TEX_W, TEX_H);
+}
+
 function formatDateDDMMYY(dateStr: string) {
   const parts = dateStr.split("-");
   if (parts.length === 3) {
@@ -431,8 +445,8 @@ export function createPassportCoverTexture(
   return canvas;
 }
 
-export function createPassportBackTexture(color: string) {
-  const { canvas, ctx } = createCanvas();
+export function createPassportBackTexture(color: string, roundedSide: "left" | "right" = "right") {
+  const { canvas, ctx } = createCanvas(TEX_W, TEX_H, roundedSide);
   const rand = mulberry32(seedFromString(color + "back"));
 
   ctx.fillStyle = color;
@@ -1236,6 +1250,8 @@ export function createPageTexture(
     wrapText(ctx, trip.notes, TEX_W / 2, 580, 380, 16);
   }
 
+  drawSpineShadow(ctx, "right");
+
   return { color: colorCanvas, clearcoatMap: clearcoatCanvas };
 }
 
@@ -1358,6 +1374,8 @@ export function createVisaInfoTexture(trip: TripData, pageNumber: number, rounde
     wrapText(ctx, trip.notes, centerX, 520, 380, 22);
   }
 
+  drawSpineShadow(ctx, roundedSide);
+
   return canvas;
 }
 
@@ -1440,6 +1458,7 @@ export function createBlankPageTexture(roundedSide: "left" | "right" = "right") 
   const rand = mulberry32(seedFromString("blank"));
 
   drawPageBackground(ctx, rand, 14);
+  drawSpineShadow(ctx, roundedSide);
 
   return canvas;
 }

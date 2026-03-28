@@ -15,7 +15,8 @@ function CheckVisa() {
   const lastFlipRef = useRef(0);
 
   const trips: TripData[] = output?.trips ?? [];
-  const totalPages = trips.length;
+  // +1 for the back-cover fold state after the last trip page
+  const totalPages = trips.length > 0 ? trips.length + 1 : 0;
   const isFullscreen = displayMode === "fullscreen";
 
   usePassportScene(
@@ -35,7 +36,7 @@ function CheckVisa() {
         if (currentPage < totalPages) {
           setCurrentPage((prev) => prev + 1);
         } else {
-          // Close the passport from the last page
+          // Back cover fully folded — close the passport
           setCurrentPage(-1);
         }
       } else if (direction === "prev" && currentPage >= -1) {
@@ -109,6 +110,12 @@ function CheckVisa() {
             onClick={() => setCurrentPage(tripIndex + 1)}
           />
         ))}
+        {trips.length > 0 && (
+          <div
+            className={`nav-dot ${currentPage === trips.length + 1 ? "active" : ""}`}
+            onClick={() => setCurrentPage(trips.length + 1)}
+          />
+        )}
       </div>
 
       {/* Expand toggle */}
