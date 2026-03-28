@@ -7,6 +7,7 @@ import {
   createPageTexture,
   createBlankPageTexture,
   createVisaInfoTexture,
+  createSpineTexture,
 } from "./textures.js";
 import type { TripData } from "./textures.js";
 
@@ -95,6 +96,8 @@ export function usePassportScene(
   const sceneRef = useRef<SceneState | null>(null);
   const pageTargets = useRef<number[]>([]);
   const pageCurrentAngles = useRef<number[]>([]);
+  const mousePos = useRef({ x: 0, y: 0 });
+  const smoothMouse = useRef({ x: 0, y: 0 });
 
   // ── Build scene on data change ──
   useEffect(() => {
@@ -160,9 +163,9 @@ export function usePassportScene(
     const trackGeometry = (geo: THREE.BufferGeometry) => { disposables.push(() => geo.dispose()); return geo; };
 
     // ── Shared geometries ──
-    const pageGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS));
+    const pageGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS, 20, 1, 1));
     const coverGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS * 3));
-    const spineGeo = trackGeometry(new THREE.BoxGeometry(0.06, PAGE_HEIGHT, 0.15));
+    const spineGeo = trackGeometry(new THREE.BoxGeometry(0.02, PAGE_HEIGHT, 0.06));
 
     // ── Shared material defaults ──
     const passportColor = PASSPORT_COLORS[nationalityCode] || PASSPORT_COLORS.DEFAULT;
@@ -199,13 +202,44 @@ export function usePassportScene(
     // ── Cached blank page texture (identical every call — create once) ──
     const blankPageCanvas = createBlankPageTexture();
 
+    // ── Dust particles ──
+    const DUST_COUNT = 80;
+    const dustPositions = new Float32Array(DUST_COUNT * 3);
+    const dustVelocities = new Float32Array(DUST_COUNT * 3);
+    const dustSizes = new Float32Array(DUST_COUNT);
+    for (let dustIdx = 0; dustIdx < DUST_COUNT; dustIdx++) {
+      dustPositions[dustIdx * 3] = (Math.random() - 0.5) * 6;
+      dustPositions[dustIdx * 3 + 1] = (Math.random() - 0.5) * 4;
+      dustPositions[dustIdx * 3 + 2] = (Math.random() - 0.5) * 4;
+      dustVelocities[dustIdx * 3] = (Math.random() - 0.5) * 0.002;
+      dustVelocities[dustIdx * 3 + 1] = 0.001 + Math.random() * 0.003;
+      dustVelocities[dustIdx * 3 + 2] = (Math.random() - 0.5) * 0.001;
+      dustSizes[dustIdx] = 1.5 + Math.random() * 2.5;
+    }
+    const dustGeo = trackGeometry(new THREE.BufferGeometry());
+    dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
+    dustGeo.setAttribute("size", new THREE.BufferAttribute(dustSizes, 1));
+    const dustMat = trackMaterial(new THREE.PointsMaterial({
+      color: 0xdaa520,
+      size: 0.02,
+      transparent: true,
+      opacity: 0.35,
+      sizeAttenuation: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }));
+    const dustPoints = new THREE.Points(dustGeo, dustMat);
+    scene.add(dustPoints);
+
     const bookGroup = new THREE.Group();
-    bookGroup.rotation.x = -0.4;
     scene.add(bookGroup);
 
-    // Spine
+    // Spine with stitch texture
+    const spineCanvas = createSpineTexture(passportColor);
+    const spineTex = trackTexture(new THREE.CanvasTexture(spineCanvas));
+    spineTex.colorSpace = THREE.SRGBColorSpace;
     const spineMat = trackMaterial(new THREE.MeshPhysicalMaterial({
-      color: passportColor,
+      map: spineTex,
       roughness: 0.75,
       metalness: 0.05,
       bumpMap: leatherBumpTexture,
@@ -259,8 +293,8 @@ export function usePassportScene(
       const frontPageMat = trackMaterial(new THREE.MeshPhysicalMaterial({
         ...paperDefaults,
         map: frontTexture,
-        clearcoat: 0.15,
-        clearcoatRoughness: 0.5,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.35,
       }));
 
       if (pageResult.clearcoatMap) {
@@ -323,6 +357,17 @@ export function usePassportScene(
     coverGroup.add(coverMesh);
     bookGroup.add(coverGroup);
 
+    // ── Store original page vertex positions for curl deformation ──
+    const pageOriginalPositions: Float32Array[] = [];
+    const pageCurled: boolean[] = [];
+    for (const pageGroup of pages) {
+      const mesh = pageGroup.children[0] as THREE.Mesh;
+      const posAttr = mesh.geometry.attributes.position as THREE.BufferAttribute;
+      pageOriginalPositions.push(new Float32Array(posAttr.array));
+      pageCurled.push(false);
+      mesh.frustumCulled = false; // deformed vertices may escape bounding sphere
+    }
+
     // ── Init angles ──
     const allFlippable = [coverGroup, ...pages];
     const flippableCount = allFlippable.length;
@@ -341,7 +386,10 @@ export function usePassportScene(
       allFlippable.forEach((group, index) => {
         const target = pageTargets.current[index];
         const current = pageCurrentAngles.current[index];
-        pageCurrentAngles.current[index] += (target - current) * 0.08;
+        const diff = target - current;
+        // Ease-out: fast start, gentle landing
+        const speed = Math.abs(diff) > 0.5 ? 0.18 : 0.12;
+        pageCurrentAngles.current[index] += diff * speed;
         group.rotation.y = -pageCurrentAngles.current[index];
         // Z-ordering reverses when pages flip to the left side
         const flipT = Math.min(pageCurrentAngles.current[index] / (Math.PI * 0.95), 1);
@@ -350,8 +398,79 @@ export function usePassportScene(
         group.position.z = closedZ * (1 - flipT) + openZ * flipT;
       });
 
+      // ── Page curl deformation ──
+      for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+        const flipIdx = pageIdx + 1; // cover is index 0 in allFlippable
+        const flipProgress = Math.min(pageCurrentAngles.current[flipIdx] / (Math.PI * 0.95), 1);
+        const curlStrength = Math.sin(flipProgress * Math.PI); // peaks at mid-flip
+
+        const mesh = pages[pageIdx].children[0] as THREE.Mesh;
+        const posAttr = mesh.geometry.attributes.position as THREE.BufferAttribute;
+        const original = pageOriginalPositions[pageIdx];
+        const positions = posAttr.array as Float32Array;
+
+        if (curlStrength < 0.01) {
+          // Reset to flat if previously curled
+          if (pageCurled[pageIdx]) {
+            positions.set(original);
+            posAttr.needsUpdate = true;
+            pageCurled[pageIdx] = false;
+          }
+          continue;
+        }
+
+        for (let vertIdx = 0; vertIdx < positions.length; vertIdx += 3) {
+          const origX = original[vertIdx];
+          const origZ = original[vertIdx + 2];
+          // normalizedX: 0 at spine, 1 at outer edge
+          const normalizedX = (origX + PAGE_WIDTH / 2) / PAGE_WIDTH;
+          // Smooth arc peaking at page center, scaled by curl strength
+          const curlZ = curlStrength * Math.sin(normalizedX * Math.PI) * 0.18;
+          positions[vertIdx + 2] = origZ + curlZ;
+        }
+        posAttr.needsUpdate = true;
+        pageCurled[pageIdx] = true;
+      }
+
+      // ── Dust particle motion ──
+      const dustPos = dustGeo.attributes.position as THREE.BufferAttribute;
+      for (let dustIdx = 0; dustIdx < DUST_COUNT; dustIdx++) {
+        const baseIdx = dustIdx * 3;
+        dustPositions[baseIdx] += dustVelocities[baseIdx] + Math.sin(time * 0.3 + dustIdx) * 0.0005;
+        dustPositions[baseIdx + 1] += dustVelocities[baseIdx + 1];
+        dustPositions[baseIdx + 2] += dustVelocities[baseIdx + 2];
+        // Wrap particles that drift out of bounds
+        if (dustPositions[baseIdx + 1] > 2.5) {
+          dustPositions[baseIdx + 1] = -2.5;
+          dustPositions[baseIdx] = (Math.random() - 0.5) * 6;
+        }
+      }
+      dustPos.needsUpdate = true;
+
+      // ── Mouse parallax tilt ──
+      smoothMouse.current.x += (mousePos.current.x - smoothMouse.current.x) * 0.05;
+      smoothMouse.current.y += (mousePos.current.y - smoothMouse.current.y) * 0.05;
+      const parallaxTiltY = smoothMouse.current.x * 0.25;
+      const parallaxTiltX = smoothMouse.current.y * 0.12;
+
       bookGroup.position.y = Math.sin(time * 0.5) * 0.03;
+      bookGroup.rotation.x = -0.4 + parallaxTiltX;
+      bookGroup.rotation.y = parallaxTiltY;
       bookGroup.rotation.z = Math.sin(time * 0.3) * 0.008;
+
+      // ── Dynamic light follows mouse for page glow ──
+      mainLight.position.set(
+        3 + smoothMouse.current.x * 2.5,
+        6,
+        4 + smoothMouse.current.y * 1.5
+      );
+      // Boost intensity when tilted (pages catch light at an angle)
+      const tiltMagnitude = Math.sqrt(
+        smoothMouse.current.x * smoothMouse.current.x +
+        smoothMouse.current.y * smoothMouse.current.y
+      );
+      mainLight.intensity = 1.6 + tiltMagnitude * 0.8;
+      rimLight.intensity = 0.3 + tiltMagnitude * 0.4;
 
       renderer.render(scene, camera);
     };
@@ -365,8 +484,16 @@ export function usePassportScene(
     };
     window.addEventListener("resize", handleResize);
 
+    const handleMouseMove = (event: MouseEvent) => {
+      // Normalize to -1..1 range
+      mousePos.current.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mousePos.current.y = (event.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+
     return () => {
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousemove", handleMouseMove);
       cancelAnimationFrame(sceneRef.current!.animationId);
       for (const dispose of sceneRef.current!.disposables) dispose();
       renderer.dispose();

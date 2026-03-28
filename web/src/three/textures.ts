@@ -463,6 +463,120 @@ function drawFiligreeWatermark(ctx: CanvasRenderingContext2D) {
   ctx.restore();
 }
 
+function drawGlobeWatermark(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  const cx = TEX_W / 2;
+  const cy = TEX_H * 0.46;
+  const globeR = 150;
+
+  ctx.globalAlpha = 0.14;
+  ctx.strokeStyle = "#8b7752";
+  ctx.lineWidth = 1.4;
+
+  // Outer circle (globe outline)
+  ctx.beginPath();
+  ctx.arc(cx, cy, globeR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Second outline for thickness
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.arc(cx, cy, globeR - 4, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Equator
+  ctx.lineWidth = 1.0;
+  ctx.beginPath();
+  ctx.moveTo(cx - globeR, cy);
+  ctx.lineTo(cx + globeR, cy);
+  ctx.stroke();
+
+  // Latitude lines (ellipses at various heights)
+  ctx.lineWidth = 0.6;
+  for (const latFraction of [-0.7, -0.45, -0.2, 0.2, 0.45, 0.7]) {
+    const latY = cy + latFraction * globeR;
+    const latRx = Math.sqrt(globeR * globeR - (latFraction * globeR) ** 2);
+    ctx.beginPath();
+    ctx.ellipse(cx, latY, latRx, latRx * 0.12, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Longitude meridians (vertical ellipses)
+  for (const lonFraction of [-0.7, -0.4, -0.15, 0.15, 0.4, 0.7]) {
+    const meridianRx = Math.abs(lonFraction) * globeR;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, Math.max(meridianRx, 6), globeR, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Rough continent shapes — simple blobs suggesting landmasses
+  ctx.globalAlpha = 0.09;
+  ctx.fillStyle = "#8b7752";
+
+  // "Europe/Africa" blob (right-center)
+  ctx.beginPath();
+  ctx.moveTo(cx + 15, cy - 70);
+  ctx.quadraticCurveTo(cx + 45, cy - 50, cx + 40, cy - 10);
+  ctx.quadraticCurveTo(cx + 50, cy + 20, cx + 30, cy + 60);
+  ctx.quadraticCurveTo(cx + 20, cy + 80, cx + 10, cy + 50);
+  ctx.quadraticCurveTo(cx - 5, cy + 20, cx + 5, cy - 20);
+  ctx.quadraticCurveTo(cx - 5, cy - 55, cx + 15, cy - 70);
+  ctx.fill();
+
+  // "Americas" blob (left side)
+  ctx.beginPath();
+  ctx.moveTo(cx - 60, cy - 80);
+  ctx.quadraticCurveTo(cx - 30, cy - 90, cx - 25, cy - 55);
+  ctx.quadraticCurveTo(cx - 20, cy - 30, cx - 40, cy - 15);
+  ctx.quadraticCurveTo(cx - 35, cy + 10, cx - 45, cy + 40);
+  ctx.quadraticCurveTo(cx - 55, cy + 70, cx - 70, cy + 50);
+  ctx.quadraticCurveTo(cx - 80, cy + 20, cx - 70, cy - 20);
+  ctx.quadraticCurveTo(cx - 75, cy - 60, cx - 60, cy - 80);
+  ctx.fill();
+
+  // "Asia" blob (upper right)
+  ctx.beginPath();
+  ctx.moveTo(cx + 55, cy - 60);
+  ctx.quadraticCurveTo(cx + 90, cy - 70, cx + 100, cy - 40);
+  ctx.quadraticCurveTo(cx + 110, cy - 10, cx + 85, cy + 10);
+  ctx.quadraticCurveTo(cx + 60, cy + 5, cx + 55, cy - 25);
+  ctx.quadraticCurveTo(cx + 45, cy - 45, cx + 55, cy - 60);
+  ctx.fill();
+
+  // Decorative compass rose at bottom of globe
+  ctx.globalAlpha = 0.14;
+  ctx.strokeStyle = "#8b7752";
+  ctx.lineWidth = 0.8;
+  const compassY = cy + globeR + 30;
+  const compassR = 20;
+
+  // Cardinal lines
+  for (const cardinalAngle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    ctx.beginPath();
+    ctx.moveTo(cx, compassY);
+    ctx.lineTo(
+      cx + Math.cos(cardinalAngle) * compassR,
+      compassY + Math.sin(cardinalAngle) * compassR
+    );
+    ctx.stroke();
+  }
+  // Diamond points
+  for (const pointAngle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    const tipX = cx + Math.cos(pointAngle) * compassR;
+    const tipY = compassY + Math.sin(pointAngle) * compassR;
+    const perpAngle = pointAngle + Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(cx + Math.cos(perpAngle) * 3, compassY + Math.sin(perpAngle) * 3);
+    ctx.lineTo(cx, compassY);
+    ctx.lineTo(cx - Math.cos(perpAngle) * 3, compassY - Math.sin(perpAngle) * 3);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function drawPaperFibers(ctx: CanvasRenderingContext2D, rand: () => number) {
   ctx.save();
   ctx.lineWidth = 0.4;
@@ -511,7 +625,219 @@ function drawPaperUnevenness(ctx: CanvasRenderingContext2D, rand: () => number) 
   ctx.restore();
 }
 
-function drawPageBackground(ctx: CanvasRenderingContext2D, rand: () => number, pageNumber: number) {
+function drawGuillocheBands(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+
+  // Two vertical bands — one on the left third, one on the right third
+  const bandCenters = [TEX_W * 0.22, TEX_W * 0.78];
+  const bandWidth = 60;
+  const yStart = 55;
+  const yEnd = TEX_H - 40;
+
+  for (const bandCx of bandCenters) {
+    // ── Outer wavy border lines (red-ish tint) ──
+    ctx.globalAlpha = 0.16;
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = "#a04040";
+
+    for (const side of [-1, 1]) {
+      for (const offset of [0, 4]) {
+        ctx.beginPath();
+        for (let py = yStart; py <= yEnd; py += 1) {
+          const wave = Math.sin(py * 0.035) * (bandWidth / 2 - offset);
+          const px = bandCx + side * (bandWidth / 2 + wave * 0.15) + wave * 0.3;
+          if (py === yStart) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // ── Inner crosshatch guilloche (blue-ish tint) ──
+    ctx.globalAlpha = 0.13;
+    ctx.strokeStyle = "#2a4080";
+    ctx.lineWidth = 0.6;
+
+    // Sinusoidal wave bundles — multiple overlapping sine waves
+    for (let waveIdx = 0; waveIdx < 12; waveIdx++) {
+      const freq = 0.025 + waveIdx * 0.004;
+      const amplitude = 8 + waveIdx * 3;
+      const phase = waveIdx * 0.8;
+
+      ctx.beginPath();
+      for (let py = yStart; py <= yEnd; py += 1.5) {
+        const px = bandCx + Math.sin(py * freq + phase) * amplitude;
+        if (py === yStart) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // Mirrored waves for the crosshatch effect
+    ctx.globalAlpha = 0.11;
+    for (let waveIdx = 0; waveIdx < 12; waveIdx++) {
+      const freq = 0.025 + waveIdx * 0.004;
+      const amplitude = 8 + waveIdx * 3;
+      const phase = waveIdx * 0.8 + Math.PI;
+
+      ctx.beginPath();
+      for (let py = yStart; py <= yEnd; py += 1.5) {
+        const px = bandCx + Math.sin(py * freq + phase) * amplitude;
+        if (py === yStart) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // ── Central diamond lattice pattern ──
+    ctx.globalAlpha = 0.1;
+    ctx.strokeStyle = "#2a4080";
+    ctx.lineWidth = 0.5;
+    const latticeSpacing = 12;
+
+    for (let py = yStart; py < yEnd; py += latticeSpacing) {
+      const waveOffset = Math.sin(py * 0.035) * 6;
+      ctx.beginPath();
+      ctx.moveTo(bandCx + waveOffset, py);
+      ctx.lineTo(bandCx + 6 + waveOffset, py + latticeSpacing / 2);
+      ctx.lineTo(bandCx + waveOffset, py + latticeSpacing);
+      ctx.lineTo(bandCx - 6 + waveOffset, py + latticeSpacing / 2);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // ── Outer pink/red fine wave fill ──
+    ctx.globalAlpha = 0.1;
+    ctx.strokeStyle = "#a04040";
+    ctx.lineWidth = 0.5;
+
+    for (let waveIdx = 0; waveIdx < 8; waveIdx++) {
+      const spread = bandWidth * 0.35 + waveIdx * 3;
+      const freq = 0.04 + waveIdx * 0.003;
+
+      ctx.beginPath();
+      for (let py = yStart; py <= yEnd; py += 1.5) {
+        const px = bandCx + Math.sin(py * freq + waveIdx) * spread;
+        if (py === yStart) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawSecurityBorder(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  ctx.globalAlpha = 0.04;
+  ctx.strokeStyle = "#8b7752";
+  ctx.lineWidth = 0.4;
+
+  // Microprint-style repeated text border
+  const margin = 18;
+  const text = "PASSPORT·VISA·IMMIGRATION·";
+  ctx.font = "400 3.5px 'Inter', sans-serif";
+  ctx.fillStyle = "#8b7752";
+  ctx.globalAlpha = 0.06;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  // Top edge
+  for (let xPos = margin; xPos < TEX_W - margin; xPos += ctx.measureText(text).width) {
+    ctx.fillText(text, xPos, margin);
+  }
+  // Bottom edge
+  for (let xPos = margin; xPos < TEX_W - margin; xPos += ctx.measureText(text).width) {
+    ctx.fillText(text, xPos, TEX_H - margin - 4);
+  }
+  // Left edge (rotated)
+  ctx.save();
+  ctx.translate(margin, TEX_H - margin);
+  ctx.rotate(-Math.PI / 2);
+  for (let yPos = 0; yPos < TEX_H - margin * 2; yPos += ctx.measureText(text).width) {
+    ctx.fillText(text, yPos, 0);
+  }
+  ctx.restore();
+  // Right edge (rotated)
+  ctx.save();
+  ctx.translate(TEX_W - margin, margin);
+  ctx.rotate(Math.PI / 2);
+  for (let yPos = 0; yPos < TEX_H - margin * 2; yPos += ctx.measureText(text).width) {
+    ctx.fillText(text, yPos, 0);
+  }
+  ctx.restore();
+
+  // Thin decorative rule inside margins
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = "#8b7752";
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(margin + 6, margin + 6, TEX_W - (margin + 6) * 2, TEX_H - (margin + 6) * 2);
+  ctx.setLineDash([]);
+
+  ctx.restore();
+}
+
+function drawBindingShadow(ctx: CanvasRenderingContext2D, isLeftPage: boolean) {
+  ctx.save();
+  const shadowWidth = 35;
+  const bindingX = isLeftPage ? TEX_W : 0;
+  const gradient = ctx.createLinearGradient(
+    isLeftPage ? TEX_W - shadowWidth : 0,
+    0,
+    bindingX,
+    0
+  );
+  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+  gradient.addColorStop(0.6, "rgba(0, 0, 0, 0.03)");
+  gradient.addColorStop(1, "rgba(0, 0, 0, 0.08)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(
+    isLeftPage ? TEX_W - shadowWidth : 0,
+    0,
+    shadowWidth,
+    TEX_H
+  );
+  ctx.restore();
+}
+
+function drawEdgeAging(ctx: CanvasRenderingContext2D, rand: () => number) {
+  ctx.save();
+  // Subtle darkening along all edges (handling wear)
+  const edgeWidth = 25;
+
+  // Top edge
+  const topGrad = ctx.createLinearGradient(0, 0, 0, edgeWidth);
+  topGrad.addColorStop(0, "rgba(160, 140, 100, 0.06)");
+  topGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(0, 0, TEX_W, edgeWidth);
+
+  // Bottom edge
+  const botGrad = ctx.createLinearGradient(0, TEX_H, 0, TEX_H - edgeWidth);
+  botGrad.addColorStop(0, "rgba(160, 140, 100, 0.06)");
+  botGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(0, TEX_H - edgeWidth, TEX_W, edgeWidth);
+
+  // Occasional small stains / foxing spots
+  ctx.globalAlpha = 1;
+  for (let spotIdx = 0; spotIdx < 4; spotIdx++) {
+    const spotX = rand() * TEX_W;
+    const spotY = rand() * TEX_H;
+    const spotR = 2 + rand() * 6;
+    const spotGrad = ctx.createRadialGradient(spotX, spotY, 0, spotX, spotY, spotR);
+    spotGrad.addColorStop(0, `rgba(180, 155, 110, ${0.02 + rand() * 0.03})`);
+    spotGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = spotGrad;
+    ctx.fillRect(spotX - spotR, spotY - spotR, spotR * 2, spotR * 2);
+  }
+
+  ctx.restore();
+}
+
+function drawPageBackground(ctx: CanvasRenderingContext2D, rand: () => number, pageNumber: number, isLeftPage = true) {
   // Base gradient
   const gradient = ctx.createLinearGradient(0, 0, TEX_W, TEX_H);
   gradient.addColorStop(0, "#faf8f0");
@@ -528,6 +854,15 @@ function drawPageBackground(ctx: CanvasRenderingContext2D, rand: () => number, p
 
   // Color unevenness
   drawPaperUnevenness(ctx, rand);
+
+  // Security microprint border
+  drawSecurityBorder(ctx);
+
+  // Binding shadow (spine side darkening)
+  drawBindingShadow(ctx, isLeftPage);
+
+  // Edge aging & foxing
+  drawEdgeAging(ctx, rand);
 
   // Page header: "VISAS" with decorative rule
   ctx.fillStyle = "rgba(139, 119, 82, 0.25)";
@@ -809,10 +1144,10 @@ export function createPageTexture(
 
   // Page number (realistic: offset by 16 + pageIndex * 2 for realism)
   const pageNumber = 16 + pageIndex * 2;
-  drawPageBackground(ctx, rand, pageNumber);
+  drawPageBackground(ctx, rand, pageNumber, false);
+  drawGlobeWatermark(ctx);
 
-  // ── Determine stamps ──
-  const stampCount = 1 + Math.floor(rand() * 2.5); // 1 to 3
+  // ── Single main stamp ──
   const region = getRegionForCountry(trip.countryCode);
   const transitAirports = pickTransitAirports(region, 3, rand);
   const baseInkColor =
@@ -822,72 +1157,48 @@ export function createPageTexture(
         ? STAMP_COLORS.approved.primary
         : STAMP_COLORS.rejected.primary;
 
-  const placements: StampPlacement[] = [];
+  const shape = (["circle", "rect", "oval"] as const)[Math.floor(rand() * 3)];
+  const placement: StampPlacement = {
+    cx: TEX_W / 2 + (rand() - 0.5) * 80,
+    cy: TEX_H * 0.45 + (rand() - 0.5) * 60,
+    rotation: (rand() - 0.5) * 0.35,
+    scale: 2.2 + rand() * 0.4,
+    shape,
+    inkColor: baseInkColor,
+    inkAlpha: 0.75 + rand() * 0.2,
+    shadowBlur: 0.5 + rand() * 1.0,
+  };
 
-  // Generate placement positions avoiding too much overlap
-  for (let stampIdx = 0; stampIdx < stampCount; stampIdx++) {
-    const isMain = stampIdx === 0;
-    const shape = (["circle", "rect", "oval"] as const)[Math.floor(rand() * 3)];
-
-    const cx = isMain
-      ? 150 + rand() * (TEX_W - 300)
-      : 100 + rand() * (TEX_W - 200);
-    const cy = isMain
-      ? 200 + rand() * 200
-      : 150 + rand() * 350;
-    const rotation = (rand() - 0.5) * 0.5; // -15 to +15 degrees
-    const scale = isMain ? 1.6 + rand() * 0.3 : 1.0 + rand() * 0.4;
-    const inkAlpha = 0.7 + rand() * 0.25;
-    const shadowBlur = 0.5 + rand() * 1.0;
-
-    const inkColor = isMain
-      ? baseInkColor
-      : `rgba(26, 58, 107, ${0.6 + rand() * 0.3})`;
-
-    placements.push({ cx, cy, rotation, scale, shape, inkColor, inkAlpha, shadowBlur });
+  if (placement.shape === "circle") {
+    drawCircularStamp(
+      ctx, placement,
+      trip.country.toUpperCase(),
+      trip.arrivalDate,
+      trip.visaStatus === "not_found"
+        ? "NOT FOUND"
+        : trip.approved
+          ? "APPROVED"
+          : "REJECTED"
+    );
+  } else if (placement.shape === "rect") {
+    drawRectStamp(
+      ctx, placement,
+      trip.countryCode,
+      transitAirports[0],
+      trip.arrivalDate,
+      trip.stayAllowed,
+      true
+    );
+  } else {
+    drawOvalStamp(
+      ctx, placement,
+      trip.countryCode,
+      transitAirports[0],
+      trip.arrivalDate
+    );
   }
 
-  // Draw stamps in reverse order (main stamp on top)
-  for (let drawIdx = placements.length - 1; drawIdx >= 0; drawIdx--) {
-    const placement = placements[drawIdx];
-    const isMain = drawIdx === 0;
-
-    if (placement.shape === "circle") {
-      drawCircularStamp(
-        ctx, placement,
-        isMain ? trip.country.toUpperCase() : trip.countryCode,
-        isMain ? trip.arrivalDate : trip.arrivalDate,
-        isMain
-          ? trip.visaStatus === "not_found"
-            ? "NOT FOUND"
-            : trip.approved
-              ? "APPROVED"
-              : "REJECTED"
-          : "TRANSIT"
-      );
-    } else if (placement.shape === "rect") {
-      const airport = isMain ? transitAirports[0] : transitAirports[drawIdx] ?? transitAirports[0];
-      drawRectStamp(
-        ctx, placement,
-        trip.countryCode,
-        airport,
-        isMain ? trip.arrivalDate : trip.departureDate,
-        isMain ? trip.stayAllowed : "",
-        isMain
-      );
-    } else {
-      const airport = isMain ? transitAirports[0] : transitAirports[drawIdx] ?? transitAirports[0];
-      drawOvalStamp(
-        ctx, placement,
-        trip.countryCode,
-        airport,
-        isMain ? trip.arrivalDate : trip.departureDate
-      );
-    }
-
-    // Also mark on clearcoat map
-    drawStampOnClearcoatMap(ccCtx, placement, placement.shape);
-  }
+  drawStampOnClearcoatMap(ccCtx, placement, placement.shape);
 
   // Notes at bottom
   if (trip.notes) {
@@ -907,56 +1218,57 @@ export function createVisaInfoTexture(trip: TripData, pageNumber: number) {
   const rand = mulberry32(seedFromString(trip.countryCode + trip.arrivalDate + "info"));
 
   drawPageBackground(ctx, rand, pageNumber);
+  drawGuillocheBands(ctx);
 
   const centerX = TEX_W / 2;
 
-  // ── Flag emoji / country code ──
+  // ── Country code ──
   ctx.fillStyle = "rgba(139, 119, 82, 0.5)";
-  ctx.font = "500 14px 'Inter', sans-serif";
+  ctx.font = "500 20px 'Inter', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.letterSpacing = "4px";
-  ctx.fillText(trip.countryCode.toUpperCase(), centerX, 120);
+  ctx.letterSpacing = "6px";
+  ctx.fillText(trip.countryCode.toUpperCase(), centerX, 110);
   ctx.letterSpacing = "0px";
 
   // ── Country name — large serif ──
   ctx.fillStyle = "#2a2420";
   const countryName = trip.country.toUpperCase();
-  const countryFontSize = countryName.length > 18 ? 22 : countryName.length > 12 ? 26 : 30;
+  const countryFontSize = countryName.length > 18 ? 30 : countryName.length > 12 ? 36 : 42;
   ctx.font = `600 ${countryFontSize}px 'Playfair Display', Georgia, serif`;
-  ctx.letterSpacing = "3px";
-  ctx.fillText(countryName, centerX, 165);
+  ctx.letterSpacing = "4px";
+  ctx.fillText(countryName, centerX, 170);
   ctx.letterSpacing = "0px";
 
   // ── Gold decorative rule ──
   ctx.save();
   ctx.strokeStyle = GOLD;
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1.5;
   ctx.globalAlpha = 0.7;
-  const ruleHalfWidth = 80;
+  const ruleHalfWidth = 100;
   ctx.beginPath();
-  ctx.moveTo(centerX - ruleHalfWidth, 200);
-  ctx.lineTo(centerX + ruleHalfWidth, 200);
+  ctx.moveTo(centerX - ruleHalfWidth, 215);
+  ctx.lineTo(centerX + ruleHalfWidth, 215);
   ctx.stroke();
   // Small diamond at center of rule
-  const diamondY = 200;
+  const diamondY = 215;
   ctx.fillStyle = GOLD;
   ctx.beginPath();
-  ctx.moveTo(centerX, diamondY - 4);
-  ctx.lineTo(centerX + 4, diamondY);
-  ctx.moveTo(centerX, diamondY + 4);
-  ctx.lineTo(centerX - 4, diamondY);
+  ctx.moveTo(centerX, diamondY - 5);
+  ctx.lineTo(centerX + 5, diamondY);
+  ctx.moveTo(centerX, diamondY + 5);
+  ctx.lineTo(centerX - 5, diamondY);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
   // ── Dates ──
-  ctx.fillStyle = "rgba(92, 82, 72, 0.8)";
-  ctx.font = "400 14px 'Courier New', monospace";
+  ctx.fillStyle = "rgba(92, 82, 72, 0.85)";
+  ctx.font = "400 20px 'Courier New', monospace";
   ctx.textAlign = "center";
   const formattedArrival = formatDateDDMMYY(trip.arrivalDate);
   const formattedDeparture = formatDateDDMMYY(trip.departureDate);
-  ctx.fillText(`${formattedArrival}  —  ${formattedDeparture}`, centerX, 240);
+  ctx.fillText(`${formattedArrival}  —  ${formattedDeparture}`, centerX, 265);
 
   // ── Visa status badge ──
   const isApproved = trip.approved;
@@ -964,60 +1276,134 @@ export function createVisaInfoTexture(trip: TripData, pageNumber: number) {
   const statusColors = isApproved ? STAMP_COLORS.approved : STAMP_COLORS.rejected;
 
   // Badge background
-  const badgeWidth = 160;
-  const badgeHeight = 34;
+  const badgeWidth = 220;
+  const badgeHeight = 48;
   const badgeX = centerX - badgeWidth / 2;
-  const badgeY = 285;
+  const badgeY = 320;
 
   ctx.save();
   ctx.fillStyle = statusColors.bg;
   ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 3);
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 4);
   ctx.fill();
 
   // Badge border
   ctx.strokeStyle = statusColors.primary;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2;
   ctx.globalAlpha = 0.5;
   ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 3);
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 4);
   ctx.stroke();
   ctx.restore();
 
   // Badge text
   ctx.fillStyle = statusColors.primary;
-  ctx.font = "700 14px 'Inter', sans-serif";
-  ctx.letterSpacing = "4px";
+  ctx.font = "700 20px 'Inter', sans-serif";
+  ctx.letterSpacing = "6px";
   ctx.fillText(statusText, centerX, badgeY + badgeHeight / 2);
   ctx.letterSpacing = "0px";
 
   // ── Second gold rule ──
   ctx.save();
   ctx.strokeStyle = GOLD_DIM;
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(centerX - 60, 350);
-  ctx.lineTo(centerX + 60, 350);
+  ctx.moveTo(centerX - 80, 410);
+  ctx.lineTo(centerX + 80, 410);
   ctx.stroke();
   ctx.restore();
 
   // ── Visa type + stay duration ──
-  const visaLabel = trip.visaStatus.replace(/_/g, " ");
+  const visaLabel = trip.visaStatus.replace(/_/g, " ").toUpperCase();
   const stayLabel = trip.stayAllowed ? ` · ${trip.stayAllowed}` : "";
-  ctx.fillStyle = "rgba(92, 82, 72, 0.6)";
-  ctx.font = "400 12px 'Inter', sans-serif";
-  ctx.letterSpacing = "1px";
-  ctx.fillText(`${visaLabel}${stayLabel}`, centerX, 380);
+  ctx.fillStyle = "rgba(92, 82, 72, 0.65)";
+  ctx.font = "400 18px 'Inter', sans-serif";
+  ctx.letterSpacing = "2px";
+  ctx.fillText(`${visaLabel}${stayLabel}`, centerX, 450);
   ctx.letterSpacing = "0px";
 
   // ── Notes (if present) ──
   if (trip.notes) {
-    ctx.fillStyle = "rgba(100, 80, 50, 0.45)";
-    ctx.font = "italic 300 11px 'Inter', sans-serif";
+    ctx.fillStyle = "rgba(100, 80, 50, 0.5)";
+    ctx.font = "italic 300 15px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    wrapText(ctx, trip.notes, centerX, 450, 340, 16);
+    wrapText(ctx, trip.notes, centerX, 520, 380, 22);
+  }
+
+  return canvas;
+}
+
+export function createSpineTexture(baseColor: string) {
+  const width = 64;
+  const height = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  // Base leather color
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0, 0, width, height);
+
+  // Slight darkening towards edges
+  const edgeGrad = ctx.createLinearGradient(0, 0, width, 0);
+  edgeGrad.addColorStop(0, "rgba(0,0,0,0.12)");
+  edgeGrad.addColorStop(0.3, "rgba(0,0,0,0.02)");
+  edgeGrad.addColorStop(0.7, "rgba(0,0,0,0.02)");
+  edgeGrad.addColorStop(1, "rgba(0,0,0,0.12)");
+  ctx.fillStyle = edgeGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  // Stitch line — row of small dots down the center
+  const stitchX = width / 2;
+  const stitchSpacing = 10;
+  const stitchCount = Math.floor(height / stitchSpacing);
+  const marginY = (height - (stitchCount - 1) * stitchSpacing) / 2;
+
+  for (let stitchIdx = 0; stitchIdx < stitchCount; stitchIdx++) {
+    const dotY = marginY + stitchIdx * stitchSpacing;
+    // Needle hole — tiny dark dot
+    ctx.beginPath();
+    ctx.arc(stitchX, dotY, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.fill();
+
+    // Thread segment between holes — short diagonal dashes
+    if (stitchIdx < stitchCount - 1) {
+      const nextY = dotY + stitchSpacing;
+      ctx.beginPath();
+      ctx.moveTo(stitchX - 1.5, dotY + 1.5);
+      ctx.lineTo(stitchX + 1.5, nextY - 1.5);
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  }
+
+  // Second stitch line slightly offset (double-stitched binding)
+  const stitch2X = stitchX + 6;
+  for (let stitchIdx = 0; stitchIdx < stitchCount; stitchIdx++) {
+    const dotY = marginY + stitchIdx * stitchSpacing + stitchSpacing / 2;
+    if (dotY > height - marginY) continue;
+
+    ctx.beginPath();
+    ctx.arc(stitch2X, dotY, 1, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+    ctx.fill();
+
+    if (stitchIdx < stitchCount - 1) {
+      const nextY = dotY + stitchSpacing;
+      if (nextY <= height - marginY) {
+        ctx.beginPath();
+        ctx.moveTo(stitch2X + 1.5, dotY + 1.5);
+        ctx.lineTo(stitch2X - 1.5, nextY - 1.5);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+      }
+    }
   }
 
   return canvas;
