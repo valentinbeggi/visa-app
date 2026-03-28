@@ -5,6 +5,24 @@ import "dotenv/config";
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY ?? "";
 
+function daysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.floor((new Date(dateStr).getTime() - today.getTime()) / 86_400_000);
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.floor((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
+}
+
+function parseMaxStayDays(stayAllowed: string): number | null {
+  const days = stayAllowed.match(/(\d+)\s*day/i);
+  if (days) return parseInt(days[1]);
+  const months = stayAllowed.match(/(\d+)\s*month/i);
+  if (months) return parseInt(months[1]) * 30;
+  return null;
+}
+
 function deriveVisaStatus(primaryRuleName: string): string {
   const name = primaryRuleName.toLowerCase();
   if (name === "not found") return "not_found";
@@ -82,6 +100,22 @@ Examples: "FR" for France, "JP" for Japan, "US" for United States.`,
         .describe(
           "Array of ISO 3166-1 alpha-2 destination country codes (e.g. ['JP', 'TH', 'ID'])"
         ),
+      departureDate: z
+        .string()
+        .describe("Departure date in YYYY-MM-DD format (e.g. '2026-06-15')"),
+      processingDays: z
+        .record(z.string(), z.number())
+        .describe(
+          "Estimated visa processing time in days for each destination code, based on your knowledge of the required visa type. " +
+          "Use 0 for visa-free and visa-on-arrival, 1–3 for eVisa/eTA, 14–30 for visa-required. " +
+          "Example: { 'JP': 0, 'IN': 3, 'CN': 30 }"
+        ),
+      arrivalDate: z
+        .string()
+        .describe("Arrival date at the destination(s) in YYYY-MM-DD format (e.g. '2026-06-15')"),
+      leavingDate: z
+        .string()
+        .describe("Leaving date from the destination(s) in YYYY-MM-DD format (e.g. '2026-06-29')"),
     },
     annotations: {
       readOnlyHint: true,
@@ -89,21 +123,64 @@ Examples: "FR" for France, "JP" for Japan, "US" for United States.`,
       destructiveHint: false,
     },
   },
-  async ({ passportCode, destinationCodes }) => {
+  async ({ passportCode, destinationCodes, departureDate, processingDays, arrivalDate, leavingDate }) => {
+    const departsInDays = daysUntil(departureDate);
+
     // Fan out all API calls in parallel
     const apiResults = await Promise.all(
       destinationCodes.map((code) => fetchVisaData(passportCode, code))
     );
 
-    const trips = apiResults.map((data) => {
+    const trips = apiResults.map((data, idx) => {
+      const needed = processingDays[destinationCodes[idx]] ?? 0;
+      const hasTime = departsInDays >= needed;
+
+      if (!hasTime) {
+        const note =
+          departsInDays < 0
+            ? "Departure date has already passed."
+            : `Not enough time to obtain visa — need ${needed} day${needed !== 1 ? "s" : ""}, only ${departsInDays} available.`;
+        return {
+          country: data.destination.name,
+          countryCode: data.destination.code,
+          arrivalDate: "",
+          departureDate,
+          visaStatus: "refused",
+          approved: false,
+          stayAllowed: "",
+          notes: note,
+          primaryRuleName: departsInDays < 0 ? "Too late" : "Insufficient time",
+          mandatoryRegistration: null,
+        };
+      }
+
       const primary = data.visa_rules.primary_rule;
       const secondary = data.visa_rules?.secondary_rule ?? null;
 
       const visaStatus = deriveVisaStatus(primary.name);
-      const approved = !["visa_required", "refused", "not_found"].includes(visaStatus);
-
-      // Duration: primary first, fall back to secondary
       const duration = primary.duration ?? secondary?.duration ?? "";
+
+      // Stay-duration check: planned stay must not exceed what the visa allows
+      if (arrivalDate && leavingDate && duration) {
+        const plannedDays = daysBetween(arrivalDate, leavingDate);
+        const maxDays = parseMaxStayDays(duration);
+        if (maxDays !== null && plannedDays > maxDays) {
+          return {
+            country: data.destination.name,
+            countryCode: data.destination.code,
+            arrivalDate,
+            departureDate: leavingDate,
+            visaStatus: "refused",
+            approved: false,
+            stayAllowed: duration,
+            notes: `Planned stay (${plannedDays} days) exceeds visa allowance (${maxDays} days).`,
+            primaryRuleName: primary.name,
+            mandatoryRegistration: data.mandatory_registration?.name ?? null,
+          };
+        }
+      }
+
+      const approved = !["visa_required", "refused", "not_found"].includes(visaStatus);
 
       // Notes: secondary rule + mandatory registration, shown on the stamp
       const noteParts: string[] = [];
@@ -119,13 +196,12 @@ Examples: "FR" for France, "JP" for Japan, "US" for United States.`,
       return {
         country: data.destination.name,
         countryCode: data.destination.code,
-        arrivalDate: "",
-        departureDate: "",
+        arrivalDate,
+        departureDate: leavingDate,
         visaStatus,
         approved,
         stayAllowed: duration,
         notes: noteParts.join(" · "),
-        // Embedded for the frontend info panel (avoids index-matching apiDataList)
         primaryRuleName: primary.name,
         mandatoryRegistration: data.mandatory_registration?.name ?? null,
       };
