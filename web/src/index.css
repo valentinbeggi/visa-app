@@ -1,0 +1,406 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Spectral:wght@200;300;400;500&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --cream: #f4ede4;
+  --cream-dark: #e8dfd3;
+  --cream-light: #faf6f0;
+  --gold: #b8963e;
+  --gold-light: #d4b065;
+  --gold-dark: #8a6d2b;
+  --gold-muted: rgba(184, 150, 62, 0.4);
+  --burgundy: #2d1f3d;
+  --burgundy-deep: #1a1128;
+  --text-dark: #3a3028;
+  --text-muted: #8a7e70;
+  --text-light: #b5a898;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Spectral", serif;
+  background: var(--cream);
+}
+
+/* ─── App Container ─── */
+.app-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle paper texture overlay */
+.app-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(184, 150, 62, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(184, 150, 62, 0.02) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Header ─── */
+.passport-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  z-index: 10;
+}
+
+.passport-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.passport-title h1 {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--gold);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.passport-title .subtitle {
+  font-family: "Spectral", serif;
+  font-weight: 200;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 1.5px;
+}
+
+.passport-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.stat-item .stat-label {
+  font-family: "Spectral", serif;
+  font-weight: 300;
+  font-size: 9px;
+  color: var(--text-light);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.stat-item .stat-value {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--gold-muted);
+}
+
+.stat-approved .stat-value {
+  color: #5a8a4a;
+}
+
+.stat-rejected .stat-value {
+  color: #a05040;
+}
+
+/* ─── Canvas / Three.js ─── */
+.canvas-container {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.canvas-container canvas {
+  display: block;
+}
+
+/* ─── Current Trip Info (bottom left) ─── */
+.trip-info {
+  position: absolute;
+  bottom: 88px;
+  left: 32px;
+  z-index: 10;
+  max-width: 240px;
+}
+
+.trip-info .trip-country {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 600;
+  font-size: 28px;
+  color: var(--text-dark);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.trip-info .trip-dates {
+  font-family: "Spectral", serif;
+  font-weight: 300;
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.trip-info .trip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Spectral", serif;
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 2px;
+}
+
+.trip-status.approved {
+  color: #4a7a3a;
+  background: rgba(74, 122, 58, 0.08);
+  border: 1px solid rgba(74, 122, 58, 0.15);
+}
+
+.trip-status.rejected {
+  color: #a05040;
+  background: rgba(160, 80, 64, 0.08);
+  border: 1px solid rgba(160, 80, 64, 0.15);
+}
+
+.trip-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.trip-status.approved .trip-status-dot {
+  background: #4a7a3a;
+}
+
+.trip-status.rejected .trip-status-dot {
+  background: #a05040;
+}
+
+.trip-visa-type {
+  font-family: "Spectral", serif;
+  font-weight: 300;
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ─── Navigation ─── */
+.nav-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 20px 32px;
+  z-index: 10;
+  background: linear-gradient(to top, var(--cream) 60%, transparent);
+}
+
+.nav-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--gold-muted);
+  background: transparent;
+  color: var(--gold);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  font-family: "Spectral", serif;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: var(--gold);
+  color: var(--cream);
+  border-color: var(--gold);
+}
+
+.nav-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.nav-pages {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cream-dark);
+  border: 1px solid rgba(184, 150, 62, 0.2);
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.nav-dot:hover {
+  background: var(--gold-muted);
+}
+
+.nav-dot.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  width: 20px;
+  border-radius: 3px;
+}
+
+.nav-dot.visited {
+  background: var(--gold-muted);
+}
+
+.page-label {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ─── Fullscreen toggle ─── */
+.mode-btn {
+  position: absolute;
+  top: 20px;
+  right: 32px;
+  z-index: 10;
+  background: transparent;
+  border: 1px solid var(--gold-muted);
+  border-radius: 2px;
+  padding: 6px 14px;
+  color: var(--gold);
+  font-family: "Spectral", serif;
+  font-weight: 300;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mode-btn:hover {
+  background: var(--gold);
+  color: var(--cream);
+  border-color: var(--gold);
+}
+
+/* ─── Gold decorative line ─── */
+.gold-rule {
+  width: 40px;
+  height: 1px;
+  background: var(--gold-muted);
+  margin: 8px 0;
+}
+
+/* ─── Loading ─── */
+.loading-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--cream);
+  gap: 16px;
+}
+
+.loading-text {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 400;
+  font-size: 16px;
+  color: var(--gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.loading-bar {
+  width: 120px;
+  height: 1px;
+  background: var(--cream-dark);
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40px;
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+  animation: loadSlide 1.2s ease-in-out infinite;
+}
+
+@keyframes loadSlide {
+  0% { left: -40px; }
+  100% { left: 120px; }
+}
+
+/* ─── Cover view text ─── */
+.cover-label {
+  position: absolute;
+  bottom: 88px;
+  left: 32px;
+  z-index: 10;
+}
+
+.cover-label h2 {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 300;
+  font-size: 32px;
+  color: var(--text-dark);
+  line-height: 1.1;
+}
+
+.cover-label p {
+  font-family: "Spectral", serif;
+  font-weight: 200;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
