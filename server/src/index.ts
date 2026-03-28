@@ -1,15 +1,57 @@
 import { McpServer } from "skybridge/server";
 import { z } from "zod";
 
-interface Trip {
-  country: string;
-  countryCode: string;
-  arrivalDate: string;
-  departureDate: string;
-  visaStatus: string;
-  approved: boolean;
-  stayAllowed: string;
-  notes: string;
+import "dotenv/config";
+
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY ?? "";
+
+function deriveVisaStatus(primaryRuleName: string): string {
+  const name = primaryRuleName.toLowerCase();
+  if (name === "not found") return "not_found";
+  if (name.includes("free") || name.includes("without visa")) return "visa_free";
+  if (name.includes("on arrival")) return "visa_on_arrival";
+  if (name.includes("evisa") || name.includes("e-visa")) return "evisa";
+  if (name.includes("eta")) return "eta";
+  if (name.includes("refused") || name.includes("ban") || name.includes("not allowed"))
+    return "refused";
+  return "visa_required";
+}
+
+async function fetchVisaData(passportCode: string, destinationCode: string) {
+  const response = await fetch(
+    "https://visa-requirement.p.rapidapi.com/v2/visa/check",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": "visa-requirement.p.rapidapi.com",
+      },
+      body: JSON.stringify({
+        passport: passportCode.toUpperCase(),
+        destination: destinationCode.toUpperCase(),
+      }),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || result.error) {
+    // Unknown country code — return a sentinel so the trip renders as "Not Found"
+    return {
+      passport: { code: passportCode.toUpperCase(), name: "", currency_code: "" },
+      destination: {
+        code: destinationCode.toUpperCase(),
+        name: "Unknown Destination",
+      },
+      visa_rules: {
+        primary_rule: { name: "Not found", duration: null, color: "gray" },
+      },
+      mandatory_registration: null,
+    };
+  }
+
+  return result.data;
 }
 
 const server = new McpServer(
@@ -22,68 +64,101 @@ const server = new McpServer(
   "check-visa",
   {
     description:
-      "Visual 3D passport showing visa stamps for a multi-destination trip. Use this when the user asks about visa requirements for their travels.",
+      "Visual passport showing real-time visa requirements for one or more destinations. Use this when the user asks about visa requirements for travel.",
   },
   {
-    description: `Check and visualize visa requirements for a trip. The LLM should determine visa requirements based on its knowledge and provide them as structured input.
+    description: `Fetch and visualize real-time visa requirements for a passport holder travelling to one or more destinations.
 
-The "trips" parameter must be a JSON string encoding an array of objects, each with:
-- country (string): destination country name
-- countryCode (string): ISO 3166-1 alpha-2 code (e.g. "JP")
-- arrivalDate (string): YYYY-MM-DD
-- departureDate (string): YYYY-MM-DD
-- visaStatus (string): one of "visa_free", "visa_required", "evisa", "visa_on_arrival", "eta", "refused"
-- approved (boolean): true if entry is approved
-- stayAllowed (string): e.g. "30 days"
-- notes (string): reason for rejection, special conditions, etc.
-
-Example trips value: [{"country":"Japan","countryCode":"JP","arrivalDate":"2026-04-15","departureDate":"2026-04-30","visaStatus":"visa_free","approved":true,"stayAllowed":"90 days","notes":"No visa required"}]`,
+Provide the ISO 3166-1 alpha-2 code for the passport country and an array of destination codes.
+Examples: "FR" for France, "JP" for Japan, "US" for United States.`,
     inputSchema: {
-      nationality: z
+      passportCode: z
         .string()
-        .describe("Traveler's nationality / passport country (e.g. 'France')"),
-      nationalityCode: z
-        .string()
-        .describe("ISO 3166-1 alpha-2 code of passport country (e.g. 'FR')"),
-      trips: z
-        .any()
         .describe(
-          "Array of trip objects. Each object: {country, countryCode, arrivalDate, departureDate, visaStatus (visa_free|visa_required|evisa|visa_on_arrival|eta|refused), approved (boolean), stayAllowed, notes}"
+          "ISO 3166-1 alpha-2 passport/nationality country code (e.g. 'FR' for France)"
+        ),
+      destinationCodes: z
+        .array(z.string())
+        .describe(
+          "Array of ISO 3166-1 alpha-2 destination country codes (e.g. ['JP', 'TH', 'ID'])"
         ),
     },
     annotations: {
       readOnlyHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
       destructiveHint: false,
     },
   },
-  async ({ nationality, nationalityCode, trips: tripsRaw }) => {
-    const trips: Trip[] = Array.isArray(tripsRaw)
-      ? tripsRaw
-      : JSON.parse(tripsRaw);
+  async ({ passportCode, destinationCodes }) => {
+    // Fan out all API calls in parallel
+    const apiResults = await Promise.all(
+      destinationCodes.map((code) => fetchVisaData(passportCode, code))
+    );
 
-    const approvedCount = trips.filter((trip) => trip.approved).length;
+    const trips = apiResults.map((data) => {
+      const primary = data.visa_rules.primary_rule;
+      const secondary = data.visa_rules?.secondary_rule ?? null;
+
+      const visaStatus = deriveVisaStatus(primary.name);
+      const approved = !["visa_required", "refused", "not_found"].includes(visaStatus);
+
+      // Duration: primary first, fall back to secondary
+      const duration = primary.duration ?? secondary?.duration ?? "";
+
+      // Notes: secondary rule + mandatory registration, shown on the stamp
+      const noteParts: string[] = [];
+      if (secondary) {
+        noteParts.push(
+          `Alternative: ${secondary.name}${secondary.duration ? ` (${secondary.duration})` : ""}`
+        );
+      }
+      if (data.mandatory_registration) {
+        noteParts.push(`Required: ${data.mandatory_registration.name}`);
+      }
+
+      return {
+        country: data.destination.name,
+        countryCode: data.destination.code,
+        arrivalDate: "",
+        departureDate: "",
+        visaStatus,
+        approved,
+        stayAllowed: duration,
+        notes: noteParts.join(" · "),
+        // Embedded for the frontend info panel (avoids index-matching apiDataList)
+        primaryRuleName: primary.name,
+        mandatoryRegistration: data.mandatory_registration?.name ?? null,
+      };
+    });
+
+    const approvedCount = trips.filter((t) => t.approved).length;
     const rejectedCount = trips.length - approvedCount;
+    const passport = apiResults[0].passport;
 
-    const tripSummaries = trips.map((trip) => {
-      const status = trip.approved ? "APPROVED" : "REJECTED";
-      const visaLabel = trip.visaStatus.replace(/_/g, " ").toUpperCase();
-      return `${trip.country} (${trip.arrivalDate} to ${trip.departureDate}): ${status} - ${visaLabel}${trip.notes ? ` - ${trip.notes}` : ""}`;
+    const summaryLines = trips.map((t) => {
+      const mark = t.approved ? "✓" : "✗";
+      return `${mark} ${t.country}: ${t.primaryRuleName}${t.stayAllowed ? ` (${t.stayAllowed})` : ""}`;
     });
 
     return {
       structuredContent: {
-        nationality,
-        nationalityCode,
+        nationality: passport.name,
+        nationalityCode: passport.code,
         totalDestinations: trips.length,
         approved: approvedCount,
         rejected: rejectedCount,
         trips,
+        // Full raw API payloads, one per destination
+        apiDataList: apiResults,
       },
       content: [
         {
           type: "text",
-          text: `Visa check for ${nationality} passport holder:\n${tripSummaries.join("\n")}\n\nResult: ${approvedCount}/${trips.length} destinations approved.`,
+          text: [
+            `Visa check for ${passport.name} passport — ${trips.length} destination${trips.length > 1 ? "s" : ""}:`,
+            ...summaryLines,
+            `\n${approvedCount}/${trips.length} destinations approved.`,
+          ].join("\n"),
         },
       ],
     };

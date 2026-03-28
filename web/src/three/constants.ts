@@ -85,6 +85,12 @@ export const STAMP_COLORS = {
     bg: "rgba(139, 26, 26, 0.12)",
     text: "#8b1a1a",
   },
+  not_found: {
+    primary: "#6b7280",
+    secondary: "#9ca3af",
+    bg: "rgba(107, 114, 128, 0.12)",
+    text: "#6b7280",
+  },
 } as const;
 
 /** IATA airport codes grouped by world region — for generating transit stamps */

@@ -19,6 +19,8 @@ export interface TripData {
   approved: boolean;
   stayAllowed: string;
   notes: string;
+  primaryRuleName?: string;
+  mandatoryRegistration?: string | null;
 }
 
 // ─── Seeded PRNG (mulberry32) ───
@@ -835,7 +837,12 @@ export function createPageTexture(
   const stampCount = 1 + Math.floor(rand() * 2.5); // 1 to 3
   const region = getRegionForCountry(trip.countryCode);
   const transitAirports = pickTransitAirports(region, 3, rand);
-  const baseInkColor = trip.approved ? STAMP_COLORS.approved.primary : STAMP_COLORS.rejected.primary;
+  const baseInkColor =
+    trip.visaStatus === "not_found"
+      ? STAMP_COLORS.not_found.primary
+      : trip.approved
+        ? STAMP_COLORS.approved.primary
+        : STAMP_COLORS.rejected.primary;
 
   const placements: StampPlacement[] = [];
 
@@ -874,7 +881,13 @@ export function createPageTexture(
         ctx, placement,
         isMain ? trip.country.toUpperCase() : trip.countryCode,
         isMain ? trip.arrivalDate : trip.arrivalDate,
-        isMain ? (trip.approved ? "APPROVED" : "REJECTED") : "TRANSIT"
+        isMain
+          ? trip.visaStatus === "not_found"
+            ? "NOT FOUND"
+            : trip.approved
+              ? "APPROVED"
+              : "REJECTED"
+          : "TRANSIT"
       );
     } else if (placement.shape === "rect") {
       const airport = isMain ? transitAirports[0] : transitAirports[drawIdx] ?? transitAirports[0];

@@ -98,15 +98,20 @@ function CheckVisa() {
               <div className="trip-country">
                 {getFlagEmoji(currentTrip.countryCode)} {currentTrip.country}
               </div>
-              <div className="trip-dates">
-                {currentTrip.arrivalDate} — {currentTrip.departureDate}
-              </div>
+              {(currentTrip.arrivalDate || currentTrip.departureDate) && (
+                <div className="trip-dates">
+                  {currentTrip.arrivalDate} — {currentTrip.departureDate}
+                </div>
+              )}
               <div className={`trip-status ${currentTrip.approved ? "approved" : "rejected"}`}>
                 <span className="trip-status-dot" />
-                {currentTrip.approved ? "Approved" : "Rejected"}
+                {currentTrip.primaryRuleName ??
+                  (currentTrip.approved ? "Approved" : "Rejected")}
               </div>
               <div className="trip-visa-type">
-                {currentTrip.visaStatus.replace(/_/g, " ")} · {currentTrip.stayAllowed}
+                {currentTrip.stayAllowed || "—"}
+                {currentTrip.mandatoryRegistration &&
+                  ` · ${currentTrip.mandatoryRegistration} required`}
               </div>
             </div>
           ) : currentPage <= 0 ? (
