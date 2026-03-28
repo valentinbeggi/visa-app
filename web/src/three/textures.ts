@@ -1,6 +1,3 @@
-// ─── Canvas texture generators for 3D passport pages ───
-// Pure functions that return HTMLCanvasElement. No Three.js dependency.
-
 import {
   STAMP_COLORS,
   EU_COUNTRIES,
@@ -23,8 +20,6 @@ export interface TripData {
   mandatoryRegistration?: string | null;
 }
 
-// ─── Seeded PRNG (mulberry32) ───
-
 function seedFromString(str: string) {
   let hash = 0;
   for (let charIdx = 0; charIdx < str.length; charIdx++) {
@@ -44,12 +39,41 @@ function mulberry32(seed: number) {
   };
 }
 
-// ─── Helpers ───
-
 const TEX_W = 512;
 const TEX_H = 720;
 const GOLD = "#c9a84c";
 const GOLD_DIM = "rgba(201, 168, 76, 0.5)";
+
+function createCanvas(width = TEX_W, height = TEX_H) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return { canvas, ctx: canvas.getContext("2d")! };
+}
+
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  centerX: number,
+  startY: number,
+  maxWidth: number,
+  lineHeight: number
+) {
+  const words = text.split(" ");
+  let line = "";
+  let currentY = startY;
+  for (const word of words) {
+    const testLine = line + (line ? " " : "") + word;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      ctx.fillText(line, centerX, currentY);
+      line = word;
+      currentY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) ctx.fillText(line, centerX, currentY);
+}
 
 function formatDateDDMMYY(dateStr: string) {
   const parts = dateStr.split("-");
@@ -58,8 +82,6 @@ function formatDateDDMMYY(dateStr: string) {
   }
   return dateStr;
 }
-
-// ─── Leather grain texture (overlapping radial gradients, not random dots) ───
 
 function addLeatherGrain(
   ctx: CanvasRenderingContext2D,
@@ -120,8 +142,6 @@ function addLeatherGrain(
   ctx.restore();
 }
 
-// ─── Gold foil double border with corner flourishes ───
-
 function drawGoldBorder(ctx: CanvasRenderingContext2D) {
   ctx.save();
 
@@ -170,8 +190,6 @@ function drawGoldBorder(ctx: CanvasRenderingContext2D) {
 
   ctx.restore();
 }
-
-// ─── Heraldic emblem (laurel wreath, shield, stars) ───
 
 function drawHeraldicEmblem(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   ctx.save();
@@ -297,8 +315,6 @@ function drawStar(
   ctx.fill();
 }
 
-// ─── ICAO biometric passport icon ───
-
 function drawBiometricIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -322,17 +338,12 @@ function drawBiometricIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.restore();
 }
 
-// ─── Passport front cover ───
-
 export function createPassportCoverTexture(
   nationality: string,
   nationalityCode: string,
   color: string
 ) {
-  const canvas = document.createElement("canvas");
-  canvas.width = TEX_W;
-  canvas.height = TEX_H;
-  const ctx = canvas.getContext("2d")!;
+  const { canvas, ctx } = createCanvas();
   const rand = mulberry32(seedFromString(nationalityCode + "cover"));
 
   // Base color
@@ -394,13 +405,8 @@ export function createPassportCoverTexture(
   return canvas;
 }
 
-// ─── Passport back cover ───
-
 export function createPassportBackTexture(color: string) {
-  const canvas = document.createElement("canvas");
-  canvas.width = TEX_W;
-  canvas.height = TEX_H;
-  const ctx = canvas.getContext("2d")!;
+  const { canvas, ctx } = createCanvas();
   const rand = mulberry32(seedFromString(color + "back"));
 
   ctx.fillStyle = color;
@@ -414,8 +420,6 @@ export function createPassportBackTexture(color: string) {
 
   return canvas;
 }
-
-// ─── Filigree watermark (guilloche / rosette pattern) ───
 
 function drawFiligreeWatermark(ctx: CanvasRenderingContext2D) {
   ctx.save();
@@ -459,8 +463,6 @@ function drawFiligreeWatermark(ctx: CanvasRenderingContext2D) {
   ctx.restore();
 }
 
-// ─── Paper fiber texture ───
-
 function drawPaperFibers(ctx: CanvasRenderingContext2D, rand: () => number) {
   ctx.save();
   ctx.lineWidth = 0.4;
@@ -489,8 +491,6 @@ function drawPaperFibers(ctx: CanvasRenderingContext2D, rand: () => number) {
   ctx.restore();
 }
 
-// ─── Color unevenness (aged paper patches) ───
-
 function drawPaperUnevenness(ctx: CanvasRenderingContext2D, rand: () => number) {
   ctx.save();
   for (let patchIdx = 0; patchIdx < 8; patchIdx++) {
@@ -510,8 +510,6 @@ function drawPaperUnevenness(ctx: CanvasRenderingContext2D, rand: () => number) 
   }
   ctx.restore();
 }
-
-// ─── Page background ───
 
 function drawPageBackground(ctx: CanvasRenderingContext2D, rand: () => number, pageNumber: number) {
   // Base gradient
@@ -553,8 +551,6 @@ function drawPageBackground(ctx: CanvasRenderingContext2D, rand: () => number, p
   ctx.fillText(`${pageNumber}`, TEX_W - 40, TEX_H - 30);
 }
 
-// ─── Stamp shapes ───
-
 interface StampPlacement {
   cx: number;
   cy: number;
@@ -579,8 +575,6 @@ function pickTransitAirports(region: string, count: number, rand: () => number) 
   }
   return result;
 }
-
-// ─── Draw circular stamp ───
 
 function drawCircularStamp(
   ctx: CanvasRenderingContext2D,
@@ -647,8 +641,6 @@ function drawCircularStamp(
 
   ctx.restore();
 }
-
-// ─── Draw rectangular stamp ───
 
 function drawRectStamp(
   ctx: CanvasRenderingContext2D,
@@ -722,8 +714,6 @@ function drawRectStamp(
   ctx.restore();
 }
 
-// ─── Draw oval stamp ───
-
 function drawOvalStamp(
   ctx: CanvasRenderingContext2D,
   placement: StampPlacement,
@@ -776,8 +766,6 @@ function drawOvalStamp(
   ctx.restore();
 }
 
-// ─── Draw stamp onto clearcoat map ───
-
 function drawStampOnClearcoatMap(
   ctx: CanvasRenderingContext2D,
   placement: StampPlacement,
@@ -804,24 +792,14 @@ function drawStampOnClearcoatMap(
   ctx.restore();
 }
 
-// ─── Visa stamp page ───
-
 export function createPageTexture(
   trip: TripData,
   pageIndex: number,
   totalPages: number
 ) {
-  const colorCanvas = document.createElement("canvas");
-  colorCanvas.width = TEX_W;
-  colorCanvas.height = TEX_H;
-  const ctx = colorCanvas.getContext("2d")!;
+  const { canvas: colorCanvas, ctx } = createCanvas();
+  const { canvas: clearcoatCanvas, ctx: ccCtx } = createCanvas();
 
-  const clearcoatCanvas = document.createElement("canvas");
-  clearcoatCanvas.width = TEX_W;
-  clearcoatCanvas.height = TEX_H;
-  const ccCtx = clearcoatCanvas.getContext("2d")!;
-
-  // Clearcoat map: black (matte) everywhere, white where stamps are
   ccCtx.fillStyle = "#000000";
   ccCtx.fillRect(0, 0, TEX_W, TEX_H);
 
@@ -849,9 +827,7 @@ export function createPageTexture(
   // Generate placement positions avoiding too much overlap
   for (let stampIdx = 0; stampIdx < stampCount; stampIdx++) {
     const isMain = stampIdx === 0;
-    const shape: "circle" | "rect" | "oval" = isMain
-      ? (["circle", "rect", "oval"] as const)[Math.floor(rand() * 3)]
-      : (["circle", "rect", "oval"] as const)[Math.floor(rand() * 3)];
+    const shape = (["circle", "rect", "oval"] as const)[Math.floor(rand() * 3)];
 
     const cx = isMain
       ? 150 + rand() * (TEX_W - 300)
@@ -860,7 +836,7 @@ export function createPageTexture(
       ? 200 + rand() * 200
       : 150 + rand() * 350;
     const rotation = (rand() - 0.5) * 0.5; // -15 to +15 degrees
-    const scale = isMain ? 1.1 + rand() * 0.2 : 0.75 + rand() * 0.3;
+    const scale = isMain ? 1.6 + rand() * 0.3 : 1.0 + rand() * 0.4;
     const inkAlpha = 0.7 + rand() * 0.25;
     const shadowBlur = 0.5 + rand() * 1.0;
 
@@ -920,33 +896,135 @@ export function createPageTexture(
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    const words = trip.notes.split(" ");
-    let line = "";
-    let lineY = 580;
-    const maxWidth = 380;
-    for (const word of words) {
-      const testLine = line + (line ? " " : "") + word;
-      if (ctx.measureText(testLine).width > maxWidth && line) {
-        ctx.fillText(line, TEX_W / 2, lineY);
-        line = word;
-        lineY += 16;
-      } else {
-        line = testLine;
-      }
-    }
-    if (line) ctx.fillText(line, TEX_W / 2, lineY);
+    wrapText(ctx, trip.notes, TEX_W / 2, 580, 380, 16);
   }
 
   return { color: colorCanvas, clearcoatMap: clearcoatCanvas };
 }
 
-// ─── Blank page ───
+export function createVisaInfoTexture(trip: TripData, pageNumber: number) {
+  const { canvas, ctx } = createCanvas();
+  const rand = mulberry32(seedFromString(trip.countryCode + trip.arrivalDate + "info"));
+
+  drawPageBackground(ctx, rand, pageNumber);
+
+  const centerX = TEX_W / 2;
+
+  // ── Flag emoji / country code ──
+  ctx.fillStyle = "rgba(139, 119, 82, 0.5)";
+  ctx.font = "500 14px 'Inter', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.letterSpacing = "4px";
+  ctx.fillText(trip.countryCode.toUpperCase(), centerX, 120);
+  ctx.letterSpacing = "0px";
+
+  // ── Country name — large serif ──
+  ctx.fillStyle = "#2a2420";
+  const countryName = trip.country.toUpperCase();
+  const countryFontSize = countryName.length > 18 ? 22 : countryName.length > 12 ? 26 : 30;
+  ctx.font = `600 ${countryFontSize}px 'Playfair Display', Georgia, serif`;
+  ctx.letterSpacing = "3px";
+  ctx.fillText(countryName, centerX, 165);
+  ctx.letterSpacing = "0px";
+
+  // ── Gold decorative rule ──
+  ctx.save();
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 1.2;
+  ctx.globalAlpha = 0.7;
+  const ruleHalfWidth = 80;
+  ctx.beginPath();
+  ctx.moveTo(centerX - ruleHalfWidth, 200);
+  ctx.lineTo(centerX + ruleHalfWidth, 200);
+  ctx.stroke();
+  // Small diamond at center of rule
+  const diamondY = 200;
+  ctx.fillStyle = GOLD;
+  ctx.beginPath();
+  ctx.moveTo(centerX, diamondY - 4);
+  ctx.lineTo(centerX + 4, diamondY);
+  ctx.moveTo(centerX, diamondY + 4);
+  ctx.lineTo(centerX - 4, diamondY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // ── Dates ──
+  ctx.fillStyle = "rgba(92, 82, 72, 0.8)";
+  ctx.font = "400 14px 'Courier New', monospace";
+  ctx.textAlign = "center";
+  const formattedArrival = formatDateDDMMYY(trip.arrivalDate);
+  const formattedDeparture = formatDateDDMMYY(trip.departureDate);
+  ctx.fillText(`${formattedArrival}  —  ${formattedDeparture}`, centerX, 240);
+
+  // ── Visa status badge ──
+  const isApproved = trip.approved;
+  const statusText = isApproved ? "APPROVED" : "REJECTED";
+  const statusColors = isApproved ? STAMP_COLORS.approved : STAMP_COLORS.rejected;
+
+  // Badge background
+  const badgeWidth = 160;
+  const badgeHeight = 34;
+  const badgeX = centerX - badgeWidth / 2;
+  const badgeY = 285;
+
+  ctx.save();
+  ctx.fillStyle = statusColors.bg;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 3);
+  ctx.fill();
+
+  // Badge border
+  ctx.strokeStyle = statusColors.primary;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 3);
+  ctx.stroke();
+  ctx.restore();
+
+  // Badge text
+  ctx.fillStyle = statusColors.primary;
+  ctx.font = "700 14px 'Inter', sans-serif";
+  ctx.letterSpacing = "4px";
+  ctx.fillText(statusText, centerX, badgeY + badgeHeight / 2);
+  ctx.letterSpacing = "0px";
+
+  // ── Second gold rule ──
+  ctx.save();
+  ctx.strokeStyle = GOLD_DIM;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(centerX - 60, 350);
+  ctx.lineTo(centerX + 60, 350);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Visa type + stay duration ──
+  const visaLabel = trip.visaStatus.replace(/_/g, " ");
+  const stayLabel = trip.stayAllowed ? ` · ${trip.stayAllowed}` : "";
+  ctx.fillStyle = "rgba(92, 82, 72, 0.6)";
+  ctx.font = "400 12px 'Inter', sans-serif";
+  ctx.letterSpacing = "1px";
+  ctx.fillText(`${visaLabel}${stayLabel}`, centerX, 380);
+  ctx.letterSpacing = "0px";
+
+  // ── Notes (if present) ──
+  if (trip.notes) {
+    ctx.fillStyle = "rgba(100, 80, 50, 0.45)";
+    ctx.font = "italic 300 11px 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    wrapText(ctx, trip.notes, centerX, 450, 340, 16);
+  }
+
+  return canvas;
+}
 
 export function createBlankPageTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = TEX_W;
-  canvas.height = TEX_H;
-  const ctx = canvas.getContext("2d")!;
+  const { canvas, ctx } = createCanvas();
   const rand = mulberry32(seedFromString("blank"));
 
   drawPageBackground(ctx, rand, 14);

@@ -1,6 +1,3 @@
-// ─── Passport visual constants ───
-// Shared across texture generators and scene setup.
-
 export const PASSPORT_COLORS: Record<string, string> = {
   FR: "#3C1438",
   US: "#1a2744",

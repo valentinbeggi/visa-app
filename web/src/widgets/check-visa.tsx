@@ -6,21 +6,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { usePassportScene } from "@/three/index.js";
 import type { TripData } from "@/three/index.js";
 
-function getFlagEmoji(countryCode: string) {
-  return countryCode
-    .toUpperCase()
-    .split("")
-    .map((char) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65))
-    .join("");
-}
-
 // ─── Main Widget (layout only) ───
 function CheckVisa() {
   const { input, output, isPending } = useToolInfo<"check-visa">();
   const [displayMode, setDisplayMode] = useDisplayMode();
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(-1);
-  const [isFlipping, setIsFlipping] = useState(false);
+  const lastFlipRef = useRef(0);
 
   const trips: TripData[] = output?.trips ?? [];
   const totalPages = trips.length;
@@ -36,9 +28,8 @@ function CheckVisa() {
 
   const flipPage = useCallback(
     (direction: "next" | "prev") => {
-      if (isFlipping) return;
-      setIsFlipping(true);
-      setTimeout(() => setIsFlipping(false), 600);
+      if (Date.now() - lastFlipRef.current < 600) return;
+      lastFlipRef.current = Date.now();
 
       if (direction === "next" && currentPage < totalPages) {
         setCurrentPage((prev) => prev + 1);
@@ -46,7 +37,7 @@ function CheckVisa() {
         setCurrentPage((prev) => prev - 1);
       }
     },
-    [currentPage, totalPages, isFlipping]
+    [currentPage, totalPages]
   );
 
   // Auto-open cover after mount
@@ -66,11 +57,6 @@ function CheckVisa() {
     );
   }
 
-  const currentTrip =
-    currentPage >= 1 && currentPage <= trips.length
-      ? trips[currentPage - 1]
-      : null;
-
   const pageLabel =
     currentPage <= 0
       ? "Cover"
@@ -83,80 +69,42 @@ function CheckVisa() {
       className="app-container"
       data-llm={`Viewing passport page: ${pageLabel}. ${output?.approved}/${output?.totalDestinations} destinations approved.`}
     >
-      {/* Left sidebar — all info lives here */}
-      <div className="sidebar">
-        <div className="passport-header">
-          <div className="passport-title">
-            <h1>Visa Check</h1>
-            <span className="subtitle">{output?.nationality} passport</span>
-          </div>
-        </div>
+      {/* Watermark title */}
+      <div className="watermark-title">Visa Check</div>
 
-        <div className="sidebar-content">
-          {currentTrip ? (
-            <div className="trip-info" key={currentTrip.countryCode}>
-              <div className="trip-country">
-                {getFlagEmoji(currentTrip.countryCode)} {currentTrip.country}
-              </div>
-              {(currentTrip.arrivalDate || currentTrip.departureDate) && (
-                <div className="trip-dates">
-                  {currentTrip.arrivalDate} — {currentTrip.departureDate}
-                </div>
-              )}
-              <div className={`trip-status ${currentTrip.approved ? "approved" : "rejected"}`}>
-                <span className="trip-status-dot" />
-                {currentTrip.primaryRuleName ??
-                  (currentTrip.approved ? "Approved" : "Rejected")}
-              </div>
-              <div className="trip-visa-type">
-                {currentTrip.stayAllowed || "—"}
-                {currentTrip.mandatoryRegistration &&
-                  ` · ${currentTrip.mandatoryRegistration} required`}
-              </div>
-            </div>
-          ) : currentPage <= 0 ? (
-            <div className="cover-label">
-              <h2>{output?.nationality}</h2>
-              <p>
-                {output?.totalDestinations} destinations · {output?.approved} approved
-              </p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="nav-bar">
-          <button
-            className="nav-btn"
-            onClick={() => flipPage("prev")}
-            disabled={currentPage <= -1 || isFlipping}
-          >
-            &#8249;
-          </button>
-          <div className="nav-pages">
-            <div
-              className={`nav-dot ${currentPage <= 0 ? "active" : "visited"}`}
-              onClick={() => !isFlipping && setCurrentPage(0)}
-            />
-            {trips.map((_, tripIndex) => (
-              <div
-                key={tripIndex}
-                className={`nav-dot ${currentPage === tripIndex + 1 ? "active" : currentPage > tripIndex + 1 ? "visited" : ""}`}
-                onClick={() => !isFlipping && setCurrentPage(tripIndex + 1)}
-              />
-            ))}
-          </div>
-          <button
-            className="nav-btn"
-            onClick={() => flipPage("next")}
-            disabled={currentPage >= totalPages || isFlipping}
-          >
-            &#8250;
-          </button>
-        </div>
-      </div>
-
-      {/* Passport canvas — takes all remaining space */}
+      {/* Full-viewport passport canvas */}
       <div className="canvas-container" ref={containerRef} />
+
+      {/* Side arrows */}
+      <button
+        className="side-arrow side-arrow-left"
+        onClick={() => flipPage("prev")}
+        disabled={currentPage <= -1}
+      >
+        &#8249;
+      </button>
+      <button
+        className="side-arrow side-arrow-right"
+        onClick={() => flipPage("next")}
+        disabled={currentPage >= totalPages}
+      >
+        &#8250;
+      </button>
+
+      {/* Page dots */}
+      <div className="nav-dots">
+        <div
+          className={`nav-dot ${currentPage <= 0 ? "active" : "visited"}`}
+          onClick={() => setCurrentPage(0)}
+        />
+        {trips.map((_, tripIndex) => (
+          <div
+            key={tripIndex}
+            className={`nav-dot ${currentPage === tripIndex + 1 ? "active" : currentPage > tripIndex + 1 ? "visited" : ""}`}
+            onClick={() => setCurrentPage(tripIndex + 1)}
+          />
+        ))}
+      </div>
 
       {/* Expand toggle */}
       <button
