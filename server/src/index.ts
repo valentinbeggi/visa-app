@@ -26,7 +26,7 @@ function parseMaxStayDays(stayAllowed: string): number | null {
 function deriveVisaStatus(primaryRuleName: string): string {
   const name = primaryRuleName.toLowerCase();
   if (name === "not found") return "not_found";
-  if (name.includes("free") || name.includes("without visa")) return "visa_free";
+  if (name.includes("free") || name.includes("without visa") || name.includes("not required")) return "visa_free";
   if (name.includes("on arrival")) return "visa_on_arrival";
   if (name.includes("evisa") || name.includes("e-visa")) return "evisa";
   if (name.includes("eta")) return "eta";
