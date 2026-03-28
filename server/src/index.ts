@@ -1,5 +1,6 @@
 import { McpServer } from "skybridge/server";
 import { z } from "zod";
+import { getMockVisaData } from "./mock.js";
 
 import "dotenv/config";
 
@@ -35,7 +36,12 @@ function deriveVisaStatus(primaryRuleName: string): string {
   return "visa_required";
 }
 
+
 async function fetchVisaData(passportCode: string, destinationCode: string) {
+  if (!RAPIDAPI_KEY) {
+    return getMockVisaData(passportCode, destinationCode);
+  }
+
   const response = await fetch(
     "https://visa-requirement.p.rapidapi.com/v2/visa/check",
     {

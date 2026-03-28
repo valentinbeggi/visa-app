@@ -163,7 +163,7 @@ export function usePassportScene(
     const trackGeometry = (geo: THREE.BufferGeometry) => { disposables.push(() => geo.dispose()); return geo; };
 
     // ── Shared geometries ──
-    const pageGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS, 20, 1, 1));
+    const pageGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS, 1, 1, 1));
     const coverGeo = trackGeometry(new THREE.BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_THICKNESS * 3));
     const spineGeo = trackGeometry(new THREE.BoxGeometry(0.02, PAGE_HEIGHT, 0.06));
 
@@ -199,8 +199,9 @@ export function usePassportScene(
       sheenColor: PAPER_SHEEN,
     }));
 
-    // ── Cached blank page texture (identical every call — create once) ──
-    const blankPageCanvas = createBlankPageTexture();
+    // ── Cached blank page textures (identical every call — create once) ──
+    const blankPageCanvas = createBlankPageTexture("right");   // right side (back cover inner)
+    const blankPageCanvasLeft = createBlankPageTexture("left"); // left side (last page back, cover inner fallback)
 
     // ── Dust particles ──
     const DUST_COUNT = 80;
@@ -282,8 +283,8 @@ export function usePassportScene(
       // Back face of page N = left page when viewing trip N+1
       const pageNumber = 16 + pageIdx * 2 + 1;
       const backCanvas = pageIdx < trips.length - 1
-        ? createVisaInfoTexture(trips[pageIdx + 1], pageNumber)
-        : blankPageCanvas;
+        ? createVisaInfoTexture(trips[pageIdx + 1], pageNumber, "left")
+        : blankPageCanvasLeft;
 
       const frontTexture = trackTexture(new THREE.CanvasTexture(pageResult.color));
       frontTexture.colorSpace = THREE.SRGBColorSpace;
@@ -295,6 +296,8 @@ export function usePassportScene(
         map: frontTexture,
         clearcoat: 0.3,
         clearcoatRoughness: 0.35,
+        transparent: true,
+        alphaTest: 0.1,
       }));
 
       if (pageResult.clearcoatMap) {
@@ -305,6 +308,8 @@ export function usePassportScene(
       const backPageMat = trackMaterial(new THREE.MeshPhysicalMaterial({
         ...paperDefaults,
         map: backTexture,
+        transparent: true,
+        alphaTest: 0.1,
       }));
 
       const pageMesh = new THREE.Mesh(pageGeo, [
@@ -330,8 +335,8 @@ export function usePassportScene(
     ));
     coverTexture.colorSpace = THREE.SRGBColorSpace;
     const coverInnerCanvas = trips.length > 0
-      ? createVisaInfoTexture(trips[0], 16)
-      : blankPageCanvas;
+      ? createVisaInfoTexture(trips[0], 16, "left")
+      : blankPageCanvasLeft;
     const coverBackTex = trackTexture(new THREE.CanvasTexture(coverInnerCanvas));
     coverBackTex.colorSpace = THREE.SRGBColorSpace;
 
@@ -345,11 +350,15 @@ export function usePassportScene(
         clearcoatRoughness: 0.6,
         bumpMap: leatherBumpTexture,
         bumpScale: 0.008,
+        transparent: true,
+        alphaTest: 0.1,
       })),
       trackMaterial(new THREE.MeshPhysicalMaterial({
         ...paperDefaults,
         map: coverBackTex,
         roughness: 0.85,
+        transparent: true,
+        alphaTest: 0.1,
       })),
     ]);
     coverMesh.position.set(PAGE_WIDTH / 2, 0, 0);

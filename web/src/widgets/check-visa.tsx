@@ -31,8 +31,13 @@ function CheckVisa() {
       if (Date.now() - lastFlipRef.current < 600) return;
       lastFlipRef.current = Date.now();
 
-      if (direction === "next" && currentPage < totalPages) {
-        setCurrentPage((prev) => prev + 1);
+      if (direction === "next") {
+        if (currentPage < totalPages) {
+          setCurrentPage((prev) => prev + 1);
+        } else {
+          // Close the passport from the last page
+          setCurrentPage(-1);
+        }
       } else if (direction === "prev" && currentPage >= -1) {
         setCurrentPage((prev) => prev - 1);
       }
@@ -86,7 +91,7 @@ function CheckVisa() {
       <button
         className="side-arrow side-arrow-right"
         onClick={() => flipPage("next")}
-        disabled={currentPage >= totalPages}
+        disabled={false}
       >
         &#8250;
       </button>

@@ -44,11 +44,37 @@ const TEX_H = 720;
 const GOLD = "#c9a84c";
 const GOLD_DIM = "rgba(201, 168, 76, 0.5)";
 
-function createCanvas(width = TEX_W, height = TEX_H) {
+const CORNER_RADIUS = 32; // px on a 512-wide canvas (~6%)
+
+function createCanvas(width = TEX_W, height = TEX_H, roundedSide: "left" | "right" = "right") {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  return { canvas, ctx: canvas.getContext("2d")! };
+  const ctx = canvas.getContext("2d")!;
+  const r = CORNER_RADIUS;
+
+  ctx.beginPath();
+  if (roundedSide === "right") {
+    // Round top-right and bottom-right corners only
+    ctx.moveTo(0, 0);
+    ctx.lineTo(width - r, 0);
+    ctx.arcTo(width, 0, width, r, r);
+    ctx.lineTo(width, height - r);
+    ctx.arcTo(width, height, width - r, height, r);
+    ctx.lineTo(0, height);
+  } else {
+    // Round top-left and bottom-left corners only
+    ctx.moveTo(r, 0);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(width, height);
+    ctx.lineTo(r, height);
+    ctx.arcTo(0, height, 0, height - r, r);
+    ctx.lineTo(0, r);
+    ctx.arcTo(0, 0, r, 0, r);
+  }
+  ctx.closePath();
+  ctx.clip();
+  return { canvas, ctx };
 }
 
 function wrapText(
@@ -1213,8 +1239,8 @@ export function createPageTexture(
   return { color: colorCanvas, clearcoatMap: clearcoatCanvas };
 }
 
-export function createVisaInfoTexture(trip: TripData, pageNumber: number) {
-  const { canvas, ctx } = createCanvas();
+export function createVisaInfoTexture(trip: TripData, pageNumber: number, roundedSide: "left" | "right" = "right") {
+  const { canvas, ctx } = createCanvas(TEX_W, TEX_H, roundedSide);
   const rand = mulberry32(seedFromString(trip.countryCode + trip.arrivalDate + "info"));
 
   drawPageBackground(ctx, rand, pageNumber);
@@ -1409,8 +1435,8 @@ export function createSpineTexture(baseColor: string) {
   return canvas;
 }
 
-export function createBlankPageTexture() {
-  const { canvas, ctx } = createCanvas();
+export function createBlankPageTexture(roundedSide: "left" | "right" = "right") {
+  const { canvas, ctx } = createCanvas(TEX_W, TEX_H, roundedSide);
   const rand = mulberry32(seedFromString("blank"));
 
   drawPageBackground(ctx, rand, 14);
